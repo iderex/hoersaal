@@ -68,6 +68,8 @@ jobs:
           cache: false
 
       - name: Assert no display, no media device and no elevation
+        env:
+          DISPLAY: ":99"
         run: |
           set -uo pipefail
           fail=0

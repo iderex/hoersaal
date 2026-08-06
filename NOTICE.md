@@ -6,3 +6,7 @@ laws that apply to them, including copyright and data protection law. The
 project does not endorse or support unlawful use of any kind, and nothing
 in it is designed to enable such use. The license contains the full
 warranty and liability disclaimer.
+
+[docs/what-this-is-not-for.md](docs/what-this-is-not-for.md) is the specific
+version of this notice. It names the uses this project will not support, and
+says where the operator's own obligations begin.

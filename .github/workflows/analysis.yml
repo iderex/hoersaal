@@ -1,0 +1,104 @@
+# Static analysis over the whole tree on every pull request (#22).
+#
+# This service will terminate connections from strangers, parse their signalling
+# frames and their media, and hold cryptographic state per participant, so a
+# finding here is a failure and not advice. The job exits non-zero on any
+# finding and there is no reporting-only mode.
+#
+# The analyser is staticcheck. It is written in Go and it analyses Go, so it adds
+# no language and no runtime the tree does not already carry, and it is installed
+# at a pinned version rather than through an action, so what runs is decided in
+# this file and by the module checksum database.
+#
+# The check set is `all`, which is wider than the tool's own default. The default
+# leaves several checks off for noise, and a set that moves when the tool is
+# upgraded is a set nobody chose. The tree passes the whole set today. Where the
+# lint and format check on #19 later covers the same ground, a defect refused
+# twice is duplication and not a conflict.
+#
+# Suppression is per finding and at the site. staticcheck's `//lint:ignore` needs
+# the check id and a reason, and it reports a directive missing the reason as a
+# finding of its own, so the policy is the tool's own behaviour rather than a
+# convention somebody has to remember. A configuration file is the other way to
+# suppress, it is invisible at the site, and it turns a check off for the whole
+# tree at once, so the job refuses one being tracked at all. Widening or
+# narrowing the set is an edit to this file, where it is read.
+#
+# This job carries no `name:`, so the check run takes the job id, "analysis".
+# Branch protection matches the check-run name, so a rename would silently
+# un-require the check while the protection went on reporting itself as active.
+# The id names the job rather than the tool for the same reason: swapping the
+# analyser must not un-require the analysis.
+name: Static Analysis
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Read-only: the job reads the tree and writes nothing back.
+permissions:
+  contents: read
+
+# A newer push on the same ref supersedes an in-flight run; the analysis is
+# deterministic and rerunning it is cheap.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Pinned. An analyser that resolves to whatever is newest changes what the
+      # gate refuses without anybody editing the gate.
+      STATICCHECK_VERSION: "2025.1.1"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The version comes from the tree rather than from this file, so the
+          # analysis and every other check that reads go.mod cannot drift apart.
+          go-version-file: go.mod
+          # No module cache. The job has to work from a clean checkout, and a
+          # cold cache must change what a step does rather than whether it runs.
+          cache: false
+
+      - name: Refuse a tracked suppression file
+        run: |
+          set -uo pipefail
+          found=$(git ls-files 'staticcheck.conf' '*/staticcheck.conf' || true)
+          if [ -n "$found" ]; then
+            echo "$found"
+            echo "::error::a staticcheck configuration file is tracked; suppression belongs at the finding with a reason beside it, not in a file that turns a check off for the whole tree"
+            exit 1
+          fi
+          echo "no tracked staticcheck.conf; the check set is the one this workflow names."
+
+      - name: Install the analyser
+        run: |
+          set -euo pipefail
+          go install "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}"
+
+      - name: Analyse
+        run: |
+          set -euo pipefail
+          export PATH="$(go env GOPATH)/bin:${PATH}"
+          # What ran, printed rather than assumed, so a run that covered less
+          # than the whole set cannot be read as one that covered it.
+          staticcheck -version
+          echo "checks enabled: all ($(staticcheck -list-checks | wc -l) available)"
+          echo "packages:"
+          go list ./... | sed 's/^/  /'
+          # -tests is on by default, so the suite is analysed as well as the
+          # code it covers.
+          staticcheck -checks=all ./...
+          echo "no findings."

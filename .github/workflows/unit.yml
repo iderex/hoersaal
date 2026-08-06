@@ -76,8 +76,12 @@ jobs:
 
           present() { [ -e "$1" ] && echo present || echo absent; }
 
-          x11=$(ls -A /tmp/.X11-unix 2>/dev/null | tr '\n' ' ')
-          video=$(ls -d /dev/video* 2>/dev/null | tr '\n' ' ')
+          # Both of these are expected to find nothing, and finding nothing is
+          # how `ls` exits non-zero. The step runs under the `bash -e` the runner
+          # supplies, so an unguarded substitution here ends the job before it
+          # has printed a word.
+          x11=$(ls -A /tmp/.X11-unix 2>/dev/null || true)
+          video=$(ls -d /dev/video* 2>/dev/null || true)
 
           echo "what this step examined:"
           look "id -u" "$(id -u)"

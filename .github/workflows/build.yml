@@ -1,0 +1,55 @@
+# Compiles the artefact on every pull request (#17).
+#
+# The check-run name is what the branch protection issue can require, and a
+# renamed check silently stops being required while the protection goes on
+# reporting itself as active. So this job carries no `name:` and the check run
+# takes the job id, "build", which is short and is not to be changed. The
+# dependency-review workflow makes the same choice for the same reason.
+#
+# Go has no compiler warnings to promote to errors: anything the compiler
+# objects to is already an error. `go vet` is the layer that reports the
+# problems a warning would be, so it runs here and its findings fail the job.
+name: Build
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Read-only: the job compiles the tree and writes nothing back.
+permissions:
+  contents: read
+
+# A newer push on the same ref supersedes an in-flight run; recompiling is cheap
+# and idempotent.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The version comes from the tree rather than from this file, so the
+          # build and every other check that reads go.mod cannot drift apart.
+          go-version-file: go.mod
+          # No module cache. The build has to work from a clean checkout, and a
+          # cold cache must change what a step does rather than whether it runs.
+          cache: false
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...

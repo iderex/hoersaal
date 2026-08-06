@@ -73,9 +73,13 @@ type Message struct {
 
 // envelope is the shape the members are read into once the structure has been
 // refused. The tag names are the wire names.
+// A message with nothing to carry has no data member at all rather than one
+// holding null. Without that, encoding a message with no payload and reading it
+// back gives a payload of the four bytes "null", so the two directions of this
+// package disagree about the same message.
 type envelope struct {
 	Type string          `json:"type"`
-	Data json.RawMessage `json:"data"`
+	Data json.RawMessage `json:"data,omitempty"`
 }
 
 // Decode reads one message. It is pure: the same bytes give the same answer,

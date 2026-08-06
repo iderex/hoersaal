@@ -40,6 +40,28 @@ func TestThePayloadIsHandedOnUntouched(t *testing.T) {
 	}
 }
 
+// A message with nothing to carry survives both directions unchanged. This is
+// the case that found the encoder writing a data member holding null, which
+// came back as a payload of four bytes and made the two directions of this
+// package disagree about one message.
+func TestAMessageWithNoPayloadRoundTrips(t *testing.T) {
+	b, err := Encode(Message{Type: "leave"})
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	if string(b) != `{"type":"leave"}` {
+		t.Errorf("encoded as %s, want %s", b, `{"type":"leave"}`)
+	}
+
+	m, err := Decode(b)
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if m.Payload != nil {
+		t.Errorf("payload came back as %q, want nothing", m.Payload)
+	}
+}
+
 func TestAnEnvelopeWithNoDataIsRead(t *testing.T) {
 	m, err := Decode([]byte(`{"type":"leave"}`))
 	if err != nil {

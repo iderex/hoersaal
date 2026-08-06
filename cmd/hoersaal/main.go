@@ -13,6 +13,7 @@ import (
 
 func main() {
 	banner := "  hoersaal: nothing is implemented yet  "
+	//lint:ignore SA4017 deliberate, and this reason is the thing under test on issue #22
 	strings.TrimSpace(banner)
 	fmt.Println(banner)
 }

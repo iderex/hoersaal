@@ -1,0 +1,106 @@
+# Formatting over the whole tree on every pull request (#19).
+#
+# Whole tree rather than the changed files. A rule added later must not be able
+# to leave a permanently dirty tree that everybody learns to scroll past, and the
+# cost of that choice is that the day the formatter changes its mind every open
+# pull request reddens at once. That is the trade, made on purpose.
+#
+# The formatter is gofmt. It ships with the toolchain the tree already declares,
+# so it adds no language, no runtime and no dependency, and it takes no style
+# options, so there is no formatting argument left for a review to have.
+#
+# There is no second linter leg here, and that is a decision rather than an
+# omission. `go vet` is refused by the `build` job in build.yml and staticcheck
+# with the `all` check set is refused by the `analysis` job in analysis.yml, both
+# over the whole tree and on the same events as this job. A third copy of either
+# would turn one defect into two red checks with one cause, which makes triage
+# worse rather than stricter. Adding a leg here later needs no rename, which is
+# part of why the job id names the job and not the tool.
+#
+# What this job does not cover, written here rather than left to be found. It
+# formats Go and nothing else. The workflow files are YAML, and zizmor audits
+# what they do rather than how they are laid out. The documentation is Markdown
+# and nothing in this tree formats or lints it yet; #97 is where that is owed.
+# Neither is quietly included in "the whole tree" above.
+#
+# The job carries no `name:`, so the check run takes the job id, "lint". Branch
+# protection matches the check-run name, so a rename would silently un-require
+# the check while the protection went on reporting itself as active. The name is
+# not to be changed.
+name: Lint
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Read-only: the job reads the tree and writes nothing back.
+permissions:
+  contents: read
+
+# A newer push on the same ref supersedes an in-flight run; the check is
+# deterministic and rerunning it is cheap.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The same source the build, the suite and the analysis read, so the
+          # formatter cannot disagree with the compiler about which toolchain
+          # this is. go.mod carries a `go` directive and no `toolchain`
+          # directive, so the tree fixes the minor version and the setup step
+          # resolves the patch release on the day. gofmt does not change its
+          # output across patch releases, so that is a residual rather than a
+          # known break, and it is one this file cannot close on its own.
+          go-version-file: go.mod
+          # No module cache. The job has to work from a clean checkout, and a
+          # cold cache must change how long a step takes rather than whether it
+          # runs.
+          cache: false
+
+      - name: Format
+        run: |
+          set -euo pipefail
+          # What this leg examined, printed rather than assumed, so a run that
+          # covered less than the whole tree cannot be read as one that covered
+          # it. gofmt walks from the current directory and skips entries whose
+          # names begin with a dot or an underscore, which is why the count uses
+          # the same rule instead of counting every file in the checkout. The
+          # -mindepth below is not decoration: without it the walk's own
+          # starting directory matches that rule, is pruned, and the count comes
+          # out zero on a tree full of Go files.
+          echo "toolchain: $(go version)"
+          echo "formatter:  $(command -v gofmt)"
+          count=$(find . -mindepth 1 \( -name '.*' -o -name '_*' \) -prune -o -name '*.go' -print | wc -l)
+          echo "go files reachable by the walk: ${count}"
+          # A green format check over nothing examined is the failure this leg
+          # refuses. It is the same shape as the count leg in unit.yml.
+          if [ "$count" -eq 0 ]; then
+            echo "::error::the format check reached no Go files; a green run over an empty set says nothing about the tree"
+            exit 1
+          fi
+          # gofmt -l names the files whose formatting differs from what the
+          # formatter would write, and it exits 0 whether or not it named any.
+          # So the names are what this leg reads: any output at all is the
+          # failure.
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            echo "::error::the tree is not formatted; run 'gofmt -w .' and commit the result"
+            exit 1
+          fi
+          echo "the tree is formatted."

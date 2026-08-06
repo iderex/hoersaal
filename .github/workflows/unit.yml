@@ -11,6 +11,13 @@
 # The assertion prints every thing it looked at, pass or fail, so a run that
 # examined less than the whole list cannot be read as one that examined it all.
 #
+# One thing it looks at and does not refuse, and it says so in its own output. A
+# stock runner carries a render node at /dev/dri. It is not a capture device,
+# and an unprivileged job cannot take it away, so a test that reached hardware
+# video encoding through it would pass here and fail on a machine without one.
+# That case is not caught, and calling this job a full headlessness proof would
+# be claiming more than it does.
+#
 # The suite is also required to have executed something. `go test` over a tree
 # whose tests all vanished exits zero, and a green check over zero tests is the
 # failure the count leg exists to prevent.
@@ -69,15 +76,24 @@ jobs:
 
           present() { [ -e "$1" ] && echo present || echo absent; }
 
+          x11=$(ls -A /tmp/.X11-unix 2>/dev/null | tr '\n' ' ')
+          video=$(ls -d /dev/video* 2>/dev/null | tr '\n' ' ')
+
           echo "what this step examined:"
           look "id -u" "$(id -u)"
           look "CapEff" "$(awk '/^CapEff:/{print $2}' /proc/self/status)"
           look "DISPLAY" "${DISPLAY:-<unset>}"
           look "WAYLAND_DISPLAY" "${WAYLAND_DISPLAY:-<unset>}"
-          look "/tmp/.X11-unix" "$(present /tmp/.X11-unix)"
-          look "/dev/dri" "$(present /dev/dri)"
+          look "/tmp/.X11-unix holds" "${x11:-<nothing>}"
           look "/dev/snd" "$(present /dev/snd)"
-          look "/dev/video*" "$(ls -d /dev/video* 2>/dev/null | tr '\n' ' ' || true)"
+          look "/dev/video*" "${video:-<none>}"
+          look "/dev/dri" "$(present /dev/dri)"
+          echo "what this step does not refuse:"
+          echo "  /dev/dri, the render node a stock runner carries. It is not a"
+          echo "  capture device and nothing here can remove it, so a test that"
+          echo "  reached hardware video encoding through it would pass on this"
+          echo "  runner and fail on a machine without one. This job does not"
+          echo "  catch that."
 
           # Elevation. The runner is an ordinary user and the job asks for
           # nothing more. Root would make every capability check below
@@ -100,14 +116,18 @@ jobs:
           if [ -n "${WAYLAND_DISPLAY:-}" ]; then
             refuse "WAYLAND_DISPLAY is set (${WAYLAND_DISPLAY}); this job must have no display"
           fi
-          if [ -e /tmp/.X11-unix ]; then
-            refuse "/tmp/.X11-unix exists; a display server is reachable from this job"
+          # It is the contents of the socket directory that say whether a server
+          # is reachable, not the directory. A stock ubuntu-latest runner carries
+          # an empty /tmp/.X11-unix and no server, so refusing the directory
+          # itself would refuse every run.
+          if [ -n "$x11" ]; then
+            refuse "/tmp/.X11-unix holds ${x11}; a display server is reachable from this job"
           fi
 
           # Media devices. A camera or a sound card here would let a test that
           # opens one pass on this runner and fail everywhere else.
-          if ls -d /dev/video* >/dev/null 2>&1; then
-            refuse "a video device is present; this job must have none"
+          if [ -n "$video" ]; then
+            refuse "a video device is present (${video}); this job must have none"
           fi
           if [ -e /dev/snd ]; then
             refuse "/dev/snd is present; this job must have no audio device"

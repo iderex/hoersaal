@@ -1,0 +1,194 @@
+# A bill of materials for the artefact, produced by every build (#21).
+#
+# The person this exists for is an operator running this on their own hardware
+# on the day a vulnerability in some transitive library is announced. They have
+# to answer whether they are affected, and they must be able to answer it from
+# what they were shipped rather than by reading our manifest.
+#
+# So the document is derived from the compiled artefact and not from go.mod. The
+# generator reads the module build information the linker embedded, which is the
+# set of modules that actually reached the binary. A manifest can require a
+# module no build links, and a build can carry a module a reader of the manifest
+# would not predict, and the difference is exactly the thing an operator cannot
+# check for themselves.
+#
+# It runs on every build rather than at release time. A document produced only
+# when something is released is one nobody looks at until it is wrong.
+#
+# The means is cyclonedx-gomod. It is written in Go and it reads Go build
+# information, so it adds no language and no runtime the tree does not already
+# carry, and it is installed at a pinned version rather than through an action,
+# so what runs is decided in this file and by the module checksum database. That
+# is the same argument analysis.yml makes for staticcheck, reached again here
+# rather than carried over. The format is CycloneDX in JSON, which the document
+# names in its own `bomFormat` and `specVersion` fields, so a consumer does not
+# have to be told out of band what they are holding.
+#
+# What this covers is the artefact this repository builds and nothing else. The
+# media plane is a separate process with its own dependency graph, in a language
+# this tree does not build, and that graph is outside this document. An operator
+# is told so inside the document itself rather than here, because the document is
+# the thing that travels.
+#
+# What it does not do, written here rather than left to be found. It does not
+# validate the document against the CycloneDX schema; nothing in this job would
+# notice a document that parses as JSON and is malformed as CycloneDX. It does
+# not attach the document to a release, because there is no release workflow in
+# this tree yet; #115 is where that is owed and #21 stays open on it. It records
+# no licence information, so it answers what shipped and not what may be done
+# with it.
+#
+# This job carries no `name:`, so the check run takes the job id, "sbom". Branch
+# protection matches the check-run name, so a rename would silently un-require
+# the check while the protection went on reporting itself as active. The name is
+# not to be changed.
+name: Bill of Materials
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Read-only: the job builds the artefact, describes it, and writes nothing back
+# to the repository. The document leaves as a workflow artefact.
+permissions:
+  contents: read
+
+# A newer push on the same ref supersedes an in-flight run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Pinned. A generator that resolves to whatever is newest changes what the
+      # document says without anybody editing this file.
+      CYCLONEDX_GOMOD_VERSION: "v1.10.0"
+      # The document, and the artefact it describes. The artefact is built
+      # outside the workspace so that nothing later mistakes it for a tracked
+      # file or uploads it.
+      DOC: "sbom.cdx.json"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The version comes from the tree rather than from this file, so this
+          # job and every other check that reads go.mod cannot drift apart. The
+          # artefact described here has to be the artefact build.yml compiles.
+          go-version-file: go.mod
+          # No module cache. The job has to work from a clean checkout, and a
+          # cold cache must change how long a step takes rather than what it
+          # describes.
+          cache: false
+
+      - name: Build the artefact
+        run: |
+          set -euo pipefail
+          go build -o "${RUNNER_TEMP}/hoersaal" ./cmd/hoersaal
+          echo "artefact: $(ls -l "${RUNNER_TEMP}/hoersaal" | awk '{print $5}') bytes"
+
+      - name: Install the generator
+        run: |
+          set -euo pipefail
+          go install "github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@${CYCLONEDX_GOMOD_VERSION}"
+
+      - name: Describe the artefact
+        run: |
+          set -euo pipefail
+          export PATH="$(go env GOPATH)/bin:${PATH}"
+          # bin, not mod: the input is the compiled artefact, so what comes out
+          # is what the linker put in rather than what the manifest asked for.
+          cyclonedx-gomod bin -json -output "${DOC}" "${RUNNER_TEMP}/hoersaal"
+
+          # Where the media plane's own dependency graph is, written into the
+          # document because the document is what an operator will be holding.
+          # The forwarding unit is a separate process in a language this tree
+          # does not build, so its graph is not in here and this says where to
+          # get it.
+          jq '.metadata.properties = ((.metadata.properties // []) + [
+                {"name": "hoersaal:media-plane-dependency-graph", "value": "outside"},
+                {"name": "hoersaal:media-plane-dependency-graph-source", "value": "This document covers only the artefact built from this repository. The forwarding unit runs as a separate process with its own dependency graph, which is published by that project and obtained from the distribution the operator runs."}
+              ])' "${DOC}" > "${DOC}.tmp"
+          mv "${DOC}.tmp" "${DOC}"
+
+      - name: Say what it covers, and refuse a document that does not cover the artefact
+        run: |
+          set -euo pipefail
+
+          # What the run examined, printed rather than assumed.
+          echo "format:     $(jq -r '.bomFormat' "${DOC}") $(jq -r '.specVersion' "${DOC}")"
+          echo "generator:  $(jq -c '.metadata.tools' "${DOC}")"
+          echo "subject:    $(jq -r '.metadata.component.name + " " + .metadata.component.version' "${DOC}")"
+          echo "components: $(jq -r '[.components[]?] | length' "${DOC}")"
+
+          # The two sides of the comparison, each derived independently. The
+          # left one is read out of the artefact by the toolchain that built it;
+          # the right one is what the generator wrote down. Nobody maintains
+          # either as a list, which is the property that has to hold when a
+          # dependency is added.
+          go version -m "${RUNNER_TEMP}/hoersaal" \
+            | awk '$1 == "mod" || $1 == "dep" { print $2 }' | sort -u > artefact.modules
+          jq -r '.metadata.component.name, (.components[]? | .name)' "${DOC}" | sort -u > document.modules
+
+          echo "modules the artefact reports:"
+          sed 's/^/  /' artefact.modules
+          echo "modules the document names:"
+          sed 's/^/  /' document.modules
+
+          # One comparison, used twice: once on the real document and once on a
+          # fixture below, so the fixture exercises the same code that judges
+          # the real one.
+          disagreement() {
+            comm -23 "$1" "$2" | sed 's/^/  in the artefact and missing from the document: /'
+            comm -13 "$1" "$2" | sed 's/^/  named by the document and not in the artefact: /'
+          }
+
+          found=$(disagreement artefact.modules document.modules)
+          if [ -n "${found}" ]; then
+            echo "${found}"
+            echo "::error::the bill of materials does not describe the artefact this build produced"
+            exit 1
+          fi
+          echo "the document names exactly the modules the artefact reports."
+
+          # That leg is worth having only if it fires, and it is proved on every
+          # run rather than once. A copy of the document with one module taken
+          # out of it has to be refused. A run where the copy passes is a run
+          # whose comparison has stopped working, and it fails here rather than
+          # going green over a document that covers nothing.
+          removed=$(tail -n 1 document.modules)
+          sed '$d' document.modules > fixture.modules
+          fixture=$(disagreement artefact.modules fixture.modules)
+          if [ -z "${fixture}" ]; then
+            echo "::error::the comparison accepted a document with ${removed} taken out of it, so the leg above is refusing nothing"
+            exit 1
+          fi
+          echo "the comparison refuses a document with ${removed} taken out of it:"
+          echo "${fixture}"
+
+          # The document has to say where the media plane's graph is, because a
+          # reader holding only the document cannot otherwise tell whether the
+          # absence of a Java dependency is a statement or an omission.
+          graph=$(jq -r '.metadata.properties[]? | select(.name == "hoersaal:media-plane-dependency-graph") | .value' "${DOC}")
+          if [ "${graph}" != "outside" ]; then
+            echo "::error::the document does not state where the media plane dependency graph is"
+            exit 1
+          fi
+          echo "media plane dependency graph: ${graph}, and the document says where to get it."
+
+      - name: Keep the document
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-cyclonedx-json
+          path: ${{ env.DOC }}
+          if-no-files-found: error

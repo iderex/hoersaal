@@ -132,6 +132,36 @@ is in its package comment. Reaching the network from a test is refused by
 nothing today, so it is a rule a reviewer holds rather than a rule the tree
 holds.
 
+## Fixtures whose bytes have to be exact
+
+A protocol fixture and a media fixture are questions asked of a decoder in
+bytes, so a byte that changes between the author and the test changes the
+question without changing the answer anybody reads.
+
+`.gitattributes` is where that is settled. Tracked text is stored and checked
+out with line feeds on every platform, and the paths that hold raw bytes are
+declared binary there by suffix, so nothing normalises them in either
+direction. Adding a suffix to that list is the whole change; nothing holds a
+second copy of it.
+
+Two conventions follow from that, and they are the ones to reach for in this
+order.
+
+Where the exact bytes are small, write them in the source as a string with
+escapes, `\r` and `\x00` and the rest, rather than as a raw literal. A raw
+literal is text, text is normalised, and the carriage return the fixture exists
+to prove is the one thing normalisation removes. The tests in
+`internal/textbytes` are written that way and say so.
+
+Where the bytes are a payload rather than a line, put them in a file under a
+suffix that `.gitattributes` declares binary, and add the suffix if it is not
+there yet. A payload stored under an undeclared suffix is normalised on the way
+in and there is nothing left to compare against.
+
+`internal/textbytes` refuses a carriage return in any file the attributes call
+text, including the workflow files, and it refuses an attributes declaration it
+cannot read rather than judging a narrower set than it reports.
+
 ## The means check
 
 Before an artefact is built, whether the means fits is checked and the answer is

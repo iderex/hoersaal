@@ -1,0 +1,162 @@
+# Runs the whole unit suite on every pull request (#18).
+#
+# Headless testability is a birth requirement on this board, so this job is the
+# place a test that needs a display, a camera, a microphone or a privilege stops
+# being possible. It runs on a stock runner as the unprivileged user the runner
+# already is, and it adds nothing to that environment.
+#
+# The absences are asserted rather than assumed. A runner image that happened to
+# ship a display server would let a display-dependent test pass here and fail on
+# somebody else's machine, and the discipline would unwind quietly from there.
+# The assertion prints every thing it looked at, pass or fail, so a run that
+# examined less than the whole list cannot be read as one that examined it all.
+#
+# One thing it looks at and does not refuse, and it says so in its own output. A
+# stock runner carries a render node at /dev/dri. It is not a capture device,
+# and an unprivileged job cannot take it away, so a test that reached hardware
+# video encoding through it would pass here and fail on a machine without one.
+# That case is not caught, and calling this job a full headlessness proof would
+# be claiming more than it does.
+#
+# The suite is also required to have executed something. `go test` over a tree
+# whose tests all vanished exits zero, and a green check over zero tests is the
+# failure the count leg exists to prevent.
+#
+# This job carries no `name:`, so the check run takes the job id, "unit". That is
+# the same choice `build.yml` and `dependency-review.yml` document and for the
+# same reason: branch protection matches the check-run name, so renaming the job
+# would silently un-require the check while the protection went on reporting
+# itself as active. The name is not to be changed.
+name: Unit
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Read-only: the job builds and runs the tree's own tests and writes nothing
+# back.
+permissions:
+  contents: read
+
+# A newer push on the same ref supersedes an in-flight run; the suite is
+# deterministic and rerunning it is cheap.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The version comes from the tree rather than from this file, so the
+          # suite and every other check that reads go.mod cannot drift apart.
+          go-version-file: go.mod
+          # No module cache. The suite has to work from a clean checkout, and a
+          # cold cache must change what a step does rather than whether it runs.
+          cache: false
+
+      - name: Assert no display, no media device and no elevation
+        run: |
+          set -uo pipefail
+          fail=0
+          look() { printf '  %-24s %s\n' "$1" "$2"; }
+          refuse() { echo "::error::$1"; fail=1; }
+
+          present() { [ -e "$1" ] && echo present || echo absent; }
+
+          # Both of these are expected to find nothing, and finding nothing is
+          # how `ls` exits non-zero. The step runs under the `bash -e` the runner
+          # supplies, so an unguarded substitution here ends the job before it
+          # has printed a word.
+          x11=$(ls -A /tmp/.X11-unix 2>/dev/null || true)
+          video=$(ls -d /dev/video* 2>/dev/null || true)
+
+          echo "what this step examined:"
+          look "id -u" "$(id -u)"
+          look "CapEff" "$(awk '/^CapEff:/{print $2}' /proc/self/status)"
+          look "DISPLAY" "${DISPLAY:-<unset>}"
+          look "WAYLAND_DISPLAY" "${WAYLAND_DISPLAY:-<unset>}"
+          look "/tmp/.X11-unix holds" "${x11:-<nothing>}"
+          look "/dev/snd" "$(present /dev/snd)"
+          look "/dev/video*" "${video:-<none>}"
+          look "/dev/dri" "$(present /dev/dri)"
+          echo "what this step does not refuse:"
+          echo "  /dev/dri, the render node a stock runner carries. It is not a"
+          echo "  capture device and nothing here can remove it, so a test that"
+          echo "  reached hardware video encoding through it would pass on this"
+          echo "  runner and fail on a machine without one. This job does not"
+          echo "  catch that."
+
+          # Elevation. The runner is an ordinary user and the job asks for
+          # nothing more. Root would make every capability check below
+          # meaningless, and a non-empty effective capability set is the quiet
+          # version of the same thing.
+          if [ "$(id -u)" = "0" ]; then
+            refuse "the unit job is running as root; it is meant to run unprivileged"
+          fi
+          caps=$(awk '/^CapEff:/{print $2}' /proc/self/status)
+          if [ "$caps" != "0000000000000000" ]; then
+            refuse "the unit job holds effective capabilities ($caps); it is meant to hold none"
+          fi
+
+          # A display. Either environment variable is enough for a toolkit to
+          # find a server, and the socket directory is how one is found when
+          # neither is set.
+          if [ -n "${DISPLAY:-}" ]; then
+            refuse "DISPLAY is set (${DISPLAY}); this job must have no display"
+          fi
+          if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+            refuse "WAYLAND_DISPLAY is set (${WAYLAND_DISPLAY}); this job must have no display"
+          fi
+          # It is the contents of the socket directory that say whether a server
+          # is reachable, not the directory. A stock ubuntu-latest runner carries
+          # an empty /tmp/.X11-unix and no server, so refusing the directory
+          # itself would refuse every run.
+          if [ -n "$x11" ]; then
+            refuse "/tmp/.X11-unix holds ${x11}; a display server is reachable from this job"
+          fi
+
+          # Media devices. A camera or a sound card here would let a test that
+          # opens one pass on this runner and fail everywhere else.
+          if [ -n "$video" ]; then
+            refuse "a video device is present (${video}); this job must have none"
+          fi
+          if [ -e /dev/snd ]; then
+            refuse "/dev/snd is present; this job must have no audio device"
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::the runner does not have the absences this job asserts, so a test depending on one of them could pass here and fail elsewhere"
+            exit 1
+          fi
+          echo "no display, no media device, no elevation."
+
+      - name: Unit suite
+        run: |
+          set -euo pipefail
+          # -count=1 so nothing is answered from a cache, and -v so the run says
+          # which tests it executed rather than only that it was green.
+          go test -v -count=1 ./... 2>&1 | tee unit.log
+
+      - name: Count what ran
+        run: |
+          set -euo pipefail
+          total=$(grep -cE '^=== RUN ' unit.log || true)
+          top=$(grep -cE '^=== RUN   [^/]+$' unit.log || true)
+          echo "tests executed: ${total} (${top} test functions, $((total - top)) subtests)"
+          if [ "$total" -eq 0 ]; then
+            echo "::error::the unit suite executed no tests; a green check over an empty suite is what this leg refuses"
+            exit 1
+          fi

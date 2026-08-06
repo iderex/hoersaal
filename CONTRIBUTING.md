@@ -41,6 +41,22 @@ is per finding and at the site, with the check id and a reason, which is
 `//lint:ignore`. A tracked configuration file is refused, because it turns a
 check off for the whole tree from a place nobody reading the code will see.
 
+The dependency graph is locked, and the flag that refuses a resolve outside the
+lock is `-mod=readonly`. It is the toolchain's own default, and it is worth
+naming anyway, because a `GOFLAGS` set once in a shell profile is how the
+default stops being the default without anybody deciding that:
+
+    go build -mod=readonly ./...
+    go test -mod=readonly -run '^$' ./...
+    go mod verify
+
+The second line compiles the test binaries without running them, which reaches
+the requirements only the suite has. A change that adds a dependency updates
+`go.mod` and `go.sum` in the same commit, with `go mod tidy`, and leaves the
+tree clean afterwards. A build that rewrote the lock is a build that decided
+something, and the lock is meant to be the decision rather than the record of
+one.
+
 Two things this section deliberately does not do. It does not list the checks
 that run, because the run prints what it examined and a list here would drift
 against it. And it does not promise that a green local run is a green remote

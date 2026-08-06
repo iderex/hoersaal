@@ -9,5 +9,5 @@ package main
 import "fmt"
 
 func main() {
-	fmt.Println("hoersaal: nothing is implemented yet")
+	fmt.Printf("hoersaal: %d\n", "nothing is implemented yet")
 }

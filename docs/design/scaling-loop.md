@@ -89,23 +89,34 @@ that has to be visible there.
 
 Five, and who may move a unit between them is as much of the answer as the names.
 
-Issue #53 asks for four, from requested to serving to draining to gone. This
-note carries five, because the interval in which a machine exists and does not
+Two vocabularies for these states already exist and they do not agree, which is
+worth stating here rather than resolving quietly.
+[placement-seam.md](../decisions/placement-seam.md) names three, admitting,
+draining and gone, because those are the three the placer reads. Issue #56, which
+is where the pool is built, names five: requested, starting, serving, draining
+and gone. The disagreement is over one name, since #56's serving and the seam's
+admitting are the same state.
+
+This note follows #56 for the shape, which is five states and the same
+transitions, and follows the seam for the name of the one they differ on. The
+seam is a landed decision and #56 is an open issue, so where the two collide the
+landed one wins until #56 lands and says otherwise. Whichever name survives, one
+of the two documents has to change, and that is #56's to settle.
+
+The reason there are five rather than the four the wording of issue #53 uses is
+the one #56 already gives: the interval in which a machine exists and does not
 yet answer the port belongs to the provisioner and not to the pool, and
-collapsing it into the requested state would leave the pool unable to tell a
-request that has produced nothing from one that has produced a machine which is
-still starting. Those two want different responses when the wait runs long. The
-serving state is called admitting here, because that is what the placer reads it
-for. Issue #56 is where these states are built, and it is free to disagree with
-this split as long as it says so.
+collapsing it into the requested state leaves the pool unable to tell a request
+that has produced nothing from one that has produced a machine which is still
+starting. Those two want different responses when the wait runs long.
 
 Requested. The provisioner has been asked for a unit and nothing exists yet. The
 pool creates this state when it decides to grow. It is a real state rather than a
 gap, because the interval it covers is the one the whole scale-out inequality is
 about, and a pool that cannot see its own outstanding request will ask twice.
 
-Provisioning. The provisioner reports that a machine exists and is not yet
-serving. Only the provisioner moves a unit into this state.
+Starting. The provisioner reports that a machine exists and it does not yet
+answer the port. Only the provisioner moves a unit into this state.
 
 Admitting. The unit has registered with the pool and answers the port. Only the
 unit's own registration moves it here, and this is the only state in which the
@@ -331,8 +342,8 @@ the Draining and Gone states and the scale-in half of "The loop".
 Issue #62 sets the cooldown, the hysteresis, the minimum lifetime and the floor.
 It implements the last paragraph of "The timing".
 
-Issue #63 is the provisioning driver. It implements the Requested and
-Provisioning states and produces the provisioning time in "The timing".
+Issue #63 is the provisioning driver. It implements the Requested and Starting
+states and produces the provisioning time in "The timing".
 
 Issue #64 fails closed when the pool cannot grow. It implements the provisioner
 paragraph in "What each component does when another stops answering".

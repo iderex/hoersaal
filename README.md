@@ -6,6 +6,9 @@ Planning happens on the issue tracker first. Every decision that shapes
 the architecture is written down there with its reasons before the code
 that depends on it exists.
 
-See [NOTICE.md](NOTICE.md) for the intended-use notice.
+See [NOTICE.md](NOTICE.md) for the intended-use notice, and
+[docs/what-this-is-not-for.md](docs/what-this-is-not-for.md) for what this
+project is for, what it will not be built for, and where an operator's own
+obligations begin.
 
 See [LICENSE](LICENSE) for the terms, the GNU Affero General Public License version 3.

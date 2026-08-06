@@ -6,8 +6,13 @@
 // between the control plane and the media plane falls in it, is issue #16.
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func main() {
-	fmt.Println("hoersaal: nothing is implemented yet")
+	banner := "  hoersaal: nothing is implemented yet  "
+	strings.TrimSpace(banner)
+	fmt.Println(banner)
 }

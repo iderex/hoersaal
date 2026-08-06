@@ -115,8 +115,7 @@ jobs:
           # The forwarding unit is a separate process in a language this tree
           # does not build, so its graph is not in here and this says where to
           # get it.
-          jq '.components = ((.components // []) + [{"type": "library", "name": "github.com/example/not-linked", "version": "v1.0.0"}])
-              | .metadata.properties = ((.metadata.properties // []) + [
+          jq '.metadata.properties = ((.metadata.properties // []) + [
                 {"name": "hoersaal:media-plane-dependency-graph", "value": "outside"},
                 {"name": "hoersaal:media-plane-dependency-graph-source", "value": "This document covers only the artefact built from this repository. The forwarding unit runs as a separate process with its own dependency graph, which is published by that project and obtained from the distribution the operator runs."}
               ])' "${DOC}" > "${DOC}.tmp"

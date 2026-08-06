@@ -6,12 +6,8 @@
 // between the control plane and the media plane falls in it, is issue #16.
 package main
 
-import (
-	"fmt"
-
-	"github.com/google/uuid"
-)
+import "fmt"
 
 func main() {
-	fmt.Println("hoersaal: nothing is implemented yet", uuid.Nil)
+	fmt.Println("hoersaal: nothing is implemented yet")
 }

@@ -74,8 +74,19 @@ The second half is the one worth running, because it fails for a reason nobody
 can argue with. The command is in the pull request that landed this document and
 it is one line.
 
-`PROSE, NOT ENFORCEMENT.` No check refuses either half today. #98 is where they
-become tests, and this document is the source it reads.
+The first half is now a check. `internal/arch` refuses an import of
+`internal/mediaunit` from anywhere but `cmd/hoersaal` and the adapter itself,
+over every `.go` file in the tree including the tests, and the sentence it prints
+sends the reader back to this section rather than restating the rule.
+
+`PROSE, NOT ENFORCEMENT` for the second half, and that is the residual rather
+than the whole. Nothing runs the removal. The import rule is what makes the
+removal safe and it is not the same statement: a package reaching the adapter
+without importing it, through a build-tagged file the parse skips or through a
+third package it is allowed to import, is outside what the check reads and would
+still take the control plane with it. The command that settles it is one line and
+lives in the pull requests that argued this, and until something runs it on every
+change, the second half is a property somebody checks by hand.
 
 ## The second boundary: the placer may not depend on the transport
 
@@ -97,7 +108,20 @@ takes its clock as an argument like everything else in this tree does. It has no
 `internal/mediaunit` import either, which follows from the first boundary rather
 than being a second rule.
 
-`PROSE, NOT ENFORCEMENT.` #98 again.
+This is now a check, in `internal/arch`. The half about this repository is an
+allow-list, because [decisions/placement-seam.md](decisions/placement-seam.md)
+argues for a small set rather than an exclusion list: `internal/placement` may
+import `internal/domain` and nothing else from this module, which is what refuses
+`internal/clock`. The half about the standard library is an exclusion list, for
+the asymmetry that package's comment gives, and it names the network, the file
+system, the operating system and a store.
+
+`PROSE, NOT ENFORCEMENT` for what a placer does with what it imports. A placer
+holding an address it was handed is reading one of its three records and a placer
+dialling that address is the thing this section refuses, and the two are
+different packages, so the check can tell them apart. What it cannot tell apart
+is a placer that was handed something live through an interface, because the
+import is then somebody else's, and no reading of the imports finds it.
 
 ## The rest of internal
 
@@ -105,7 +129,9 @@ Everything else under `internal/` is a package named for the thing it holds,
 flat, one level down. `internal/clock` is the only place that reads the
 machine's clock and `internal/random` the only place that makes randomness, both
 for the reasons issue #27 gives; `internal/guard` refuses a use of either
-elsewhere; `internal/textbytes` refuses a carriage return in tracked text.
+elsewhere; `internal/textbytes` refuses a carriage return in tracked text;
+`internal/arch` refuses the imports the two boundaries above forbid and a
+top-level directory this document does not name.
 
 Flat rather than grouped, because a grouping is a claim about which packages
 belong together and every such claim so far has been wrong within a milestone.

@@ -191,10 +191,29 @@ func Encode(m Message) ([]byte, error) {
 		return nil, fmt.Errorf("%w: the payload is not JSON", ErrNotJSON)
 	}
 
-	b, err := json.Marshal(envelope{Type: m.Type, Data: m.Payload})
-	if err != nil {
+	// The encoder is built rather than json.Marshal called, for one setting.
+	// json.Marshal escapes <, > and & so that its output is safe to drop into
+	// an HTML document. Nothing here goes into one: this is a JSON message in a
+	// WebSocket frame, and the escaping buys nothing while costing six bytes
+	// for every one of those characters a payload holds.
+	//
+	// That cost is not cosmetic. A message a stranger sends that is comfortably
+	// under MaxMessageBytes and is mostly those three characters grows past it
+	// on the way back out, so this service would accept a message it could not
+	// then forward. The property suite on #41 found it: a payload of sixty
+	// thousand less-than signs decodes at 60022 bytes and re-encoded at 360022.
+	// With the escaping off, encoding only ever compacts, so anything that
+	// decoded can be encoded.
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(envelope{Type: m.Type, Data: m.Payload}); err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrNotJSON, err)
 	}
+	// Encoder.Encode writes a trailing newline and Marshal does not. One
+	// message is one frame, so the newline is not a separator here and would be
+	// a byte on the wire that means nothing.
+	b := bytes.TrimSuffix(buf.Bytes(), []byte("\n"))
 	if len(b) > MaxMessageBytes {
 		return nil, fmt.Errorf("%w: %d bytes, maximum is %d", ErrTooLarge, len(b), MaxMessageBytes)
 	}

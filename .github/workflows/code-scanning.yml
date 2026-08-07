@@ -111,10 +111,20 @@ jobs:
           total=0
           for f in "${files[@]}"; do
             n=$(jq '[.runs[] | (.results // []) | length] | add // 0' "$f")
-            rules=$(jq '[.runs[] | (.tool.driver.rules // []) | length] | add // 0' "$f")
-            echo "$(basename "$f"): $rules rule(s) run, $n finding(s)"
+            # The queries are counted from the driver and from the extensions
+            # together. CodeQL writes its packs as extensions and leaves the
+            # driver's own rule list empty, so counting the driver alone printed
+            # "0 rule(s) run" beside a finding that a query had just produced,
+            # which reads as a run that judged nothing. That is the one thing
+            # this line exists to stop it saying.
+            rules=$(jq '[.runs[].tool | (.driver.rules // []), ((.extensions // [])[] | .rules // [])] | map(length) | add // 0' "$f")
+            echo "$(basename "$f"): $rules quer(ies) run, $n finding(s)"
             total=$((total + n))
           done
+          if [ "$rules" -eq 0 ]; then
+            echo "::error::the analysis reported no queries at all, so this leg judged nothing; failing closed rather than reporting a clean tree"
+            exit 1
+          fi
           # What is NOT covered, said here rather than only in this file's
           # header, so a green run is not read as a scan of everything in the
           # tree. The suffixes are derived from the tree at the commit being

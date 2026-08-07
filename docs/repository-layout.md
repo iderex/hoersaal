@@ -140,7 +140,10 @@ elsewhere; `internal/textbytes` refuses a carriage return in tracked text;
 `internal/arch` refuses the imports the two boundaries above forbid and a
 top-level directory this document does not name; `internal/prhygiene` refuses a
 pull request whose commits, or whose body, do not say which issue they came
-from.
+from; `internal/fuzzing` holds the fuzz targets for the surfaces a stranger
+reaches, and holds them together rather than beside each package so that the
+corpus is one thing to carry and every target enters through the exported
+surface a stranger enters through.
 
 Flat rather than grouped, because a grouping is a claim about which packages
 belong together and every such claim so far has been wrong within a milestone.

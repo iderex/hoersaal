@@ -93,6 +93,21 @@ because the second question is the one that stops the same defect arriving
 again. The last line before the sign-off is the issue reference, `Closes #N`
 where the change completes the issue and `Refs #N` where it does not.
 
+The subject carries the reference as well, bracketed, at the end:
+
+    Refuse a pull request that names no issue [#96]
+
+Both, because they are read in different places. `Closes #N` in the body is what
+the tracker acts on. The bracketed form in the subject is what survives into
+`git log --oneline`, `git blame` and a bisect, none of which show a body, and
+those are where somebody meets a line of this repository years from now and
+wants to know what it was for. Two references to one issue is the cost;
+`internal/prhygiene` refuses a subject without one.
+
+Bracketed rather than bare so that a count, a port or a version in a subject is
+not read as a reference. Where a commit belongs to two issues, write both:
+`[#96][#89]`.
+
 One topic per commit and per pull request. A commit carrying two unrelated
 changes has a message describing one of them, and a reviewer who wants half of
 it has nowhere to say so.
@@ -100,6 +115,25 @@ it has nowhere to say so.
 A change that will not fit under review without losing quality is not a change
 that needs an exception, it is an issue whose scope was planned wrong, and the
 first response is to divide the issue rather than the finished diff.
+
+## Arriving from outside this repository
+
+The issue references above are this board's convention, and nobody arriving from
+outside it can know an issue number before the issue exists. So the pull request
+hygiene check does not apply its refusing rules to a pull request from an author
+who is not on this repository. It says in the run that it did not apply them,
+because a check that was skipped and a check that found nothing are different
+statements and a green tick shows the same for both.
+
+What that leaves you to do is nothing. Open the pull request, describe the
+change and what it fixes, and the reference is added by whoever picks it up:
+they file the issue where none exists yet, and they amend the subjects when they
+land it. If you would rather do it yourself, open the issue first and use its
+number; that is faster to merge and it is not asked of you.
+
+The rules that are not skipped for anybody are the sign-off, which is a legal
+assertion rather than a convention, and everything the other checks judge about
+the code.
 
 ## Where the decisions live
 

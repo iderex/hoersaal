@@ -17,6 +17,13 @@ holding only the wiring: reading configuration, constructing what the process
 needs, and handing control to a package under `internal/`. Nothing decides
 anything here. `cmd/hoersaal` is the service.
 
+Not everything startable is the service. `cmd/prhygiene` is a check the
+automated run starts, and it is here for the reason the paragraph above gives
+rather than as an exception to it: reading an event payload and walking a commit
+range is wiring, the rules it applies are in `internal/prhygiene` where the
+suite exercises them, and a check whose decision lived beside its input could
+only be proved by opening a pull request that tripped it.
+
 `internal/` holds everything the service is made of. It is the whole of the code
 apart from the wiring above it, and the Go toolchain refuses an import of it
 from outside this module, so the packages here are not a published surface and
@@ -131,7 +138,9 @@ machine's clock and `internal/random` the only place that makes randomness, both
 for the reasons issue #27 gives; `internal/guard` refuses a use of either
 elsewhere; `internal/textbytes` refuses a carriage return in tracked text;
 `internal/arch` refuses the imports the two boundaries above forbid and a
-top-level directory this document does not name.
+top-level directory this document does not name; `internal/prhygiene` refuses a
+pull request whose commits, or whose body, do not say which issue they came
+from.
 
 Flat rather than grouped, because a grouping is a claim about which packages
 belong together and every such claim so far has been wrong within a milestone.

@@ -1,0 +1,131 @@
+# Continuous fuzzing of the surfaces a stranger reaches, for issue #94.
+#
+# This does not run on a pull request and it does not gate a merge. A fuzz run
+# is a search with a time budget rather than a verdict on a change: the same
+# commit passes one run and fails the next when the search reaches further, so
+# gating on it would red a pull request for something that was already in the
+# tree. What a crash produces instead is a fixture, and the fixture is what
+# reds an ordinary run afterwards.
+#
+# The corpus is the part that has to be kept. A run starting from nothing
+# re-derives the shallow cases every time and never reaches the deep ones, so
+# the generated corpus is carried between runs in the Actions cache and the seed
+# corpus and every failing input are tracked in the tree. Where each of those
+# lives is in internal/fuzzing's package comment, and the size is printed by the
+# run below rather than written anywhere, because it moves.
+#
+# Twice a week rather than weekly, and the difference is the cache and not the
+# search. An Actions cache is evicted after seven days without being read, so a
+# weekly schedule sits exactly on the boundary and would lose the corpus to a
+# rescheduled run or a quiet week. Two runs four days apart keep it read.
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "23 3 * * 1"
+    - cron: "23 3 * * 5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# No cancel-in-progress. A superseded run here has done real work by the time
+# the next one starts, and its corpus is the thing being accumulated.
+concurrency:
+  group: ${{ github.workflow }}
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    # Three targets at ten minutes each, plus the build and the corpus steps.
+    timeout-minutes: 45
+    env:
+      # The duration is here rather than in the step, so what a run covered is
+      # one value a reader can find.
+      FUZZTIME: 10m
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Where the corpus lives
+        run: |
+          set -euo pipefail
+          echo "GOCACHE=$(go env GOCACHE)" >> "$GITHUB_ENV"
+          echo "FUZZCORPUS=$(go env GOCACHE)/fuzz" >> "$GITHUB_ENV"
+
+      - name: Restore the corpus from the last run
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ${{ env.FUZZCORPUS }}
+          # A key nothing else will write, and a prefix that restores the newest
+          # corpus there is. Without the rolling key the cache is written once
+          # and never updated, so the corpus would stop growing on the day it
+          # was first saved.
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: |
+            fuzz-corpus-
+
+      - name: What was carried in
+        run: |
+          set -euo pipefail
+          if [ -d "$FUZZCORPUS" ]; then
+            echo "carried in: $(find "$FUZZCORPUS" -type f | wc -l) file(s), $(du -sh "$FUZZCORPUS" | cut -f1), at $FUZZCORPUS"
+          else
+            echo "carried in: nothing. This run starts from the tracked seeds alone."
+          fi
+          echo "tracked seeds and past failures:"
+          git ls-files internal/fuzzing/testdata | sed 's/^/  /'
+          echo "  $(git ls-files internal/fuzzing/testdata | wc -l) tracked file(s)"
+
+      - name: Fuzz each target
+        run: |
+          set -uo pipefail
+          # The targets are read from the source rather than listed here, so a
+          # target added to the package is fuzzed without anybody remembering to
+          # add it, and a run cannot quietly cover fewer than the tree holds.
+          targets=$(go test -list 'Fuzz.*' ./internal/fuzzing | grep '^Fuzz' | sort)
+          if [ -z "$targets" ]; then
+            echo "::error::no fuzz targets were found, so this run searched nothing"
+            exit 1
+          fi
+          echo "targets, at ${FUZZTIME} each:"
+          echo "$targets" | sed 's/^/  /'
+          failed=0
+          for t in $targets; do
+            echo "::group::$t"
+            if ! go test -run '^$' -fuzz "^${t}$" -fuzztime="${FUZZTIME}" ./internal/fuzzing; then
+              echo "::error::${t} found a failing input. It is in the artefact attached to this run, under internal/fuzzing/testdata; commit it and the fix together."
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$failed"
+
+      - name: What was found, and what is carried out
+        # Always, because the corpus a failing run built is the one worth keeping.
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -d "$FUZZCORPUS" ]; then
+            echo "carried out: $(find "$FUZZCORPUS" -type f | wc -l) file(s), $(du -sh "$FUZZCORPUS" | cut -f1), at $FUZZCORPUS"
+          else
+            echo "carried out: nothing, which means no target ran."
+          fi
+          echo "failing inputs written into the tree by this run:"
+          git status --porcelain --untracked-files=all -- internal/fuzzing/testdata | sed 's/^/  /'
+
+      - name: Keep any failing input
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: failing-inputs
+          path: internal/fuzzing/testdata
+          if-no-files-found: warn

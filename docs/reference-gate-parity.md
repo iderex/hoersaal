@@ -115,10 +115,15 @@ the prose are checked by different tools.
 **Scorecard supply-chain security**, adopted and already running, issue #28.
 `Scorecard analysis` is in the list of runs above.
 
-**Fuzz (SharpFuzz)**, adapted, issue #94. Non-gating by construction there, on a
-weekly schedule and manual dispatch with no pull-request trigger. The surfaces
-that take bytes from strangers are different ones here, and the protocol decoder
-is the first of them.
+**Fuzz (SharpFuzz)**, adapted and already running, issue #94. Non-gating by
+construction there, on a weekly schedule and manual dispatch with no
+pull-request trigger, and non-gating here for the same reason. The surfaces that
+take bytes from strangers are different ones here, and the protocol decoder is
+the first of them. Two departures, both with their reason at the workflow:
+Go's own fuzzing rather than a fuzzing library, because the toolchain the tree
+already carries has it; and twice a week rather than weekly, because an Actions
+cache is evicted after seven days unread and the corpus is what the schedule
+exists to accumulate.
 
 **Stryker mutation testing**, adapted, issue #93, reporting rather than gating,
 which is the posture it already has there.

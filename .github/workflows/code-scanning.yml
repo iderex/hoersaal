@@ -1,0 +1,143 @@
+# Code scanning over the whole tree, for issue #90.
+#
+# This service terminates connections from strangers, decodes what they send,
+# holds a signing key and decides who is admitted to a room. Those are the three
+# things code scanning was built to look at, and this repository had none of it.
+#
+# It runs on every pull request, on every push to the default branch, and on a
+# schedule. The schedule is the leg that matters least on the day it is added
+# and most afterwards: a query added upstream reaches this repository without
+# waiting for somebody to touch the file it applies to, and a finding that only
+# a new query can see would otherwise sit in the tree until it was edited for
+# some other reason.
+#
+# A finding fails this job. The analysis also uploads, so the alerts are
+# readable in one place with their history, but the gate is the leg below that
+# counts the results in the SARIF and exits non-zero: a red check is what a
+# reader of a pull request sees, and an alert in another tab is not.
+#
+# Two languages are analysed, and what is not analysed is named in the leg that
+# prints the coverage rather than only here, so a run that covered less than the
+# tree cannot be read as one that covered it and found nothing.
+#
+# The action is pinned to the same commit `scorecard.yml` already pins, so this
+# tree carries one version of it rather than two to bump.
+#
+# This job carries no `name:` and no matrix, so the check run takes the job id,
+# "code-scanning". Branch protection matches the check-run name, so a rename
+# would silently un-require the check while the protection went on reporting
+# itself as active, and a matrix would put the language into the name and move
+# it the day a language is added. The id names what is judged rather than the
+# analyser, for the reason `analysis.yml` gives: swapping the tool must not
+# un-require the scan.
+name: Code Scanning
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+  schedule:
+    # Weekly. A daily run costs more than it finds on a tree this size, and a
+    # monthly one leaves a new query up to a month away from the code it would
+    # have caught.
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-scanning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # The analysis uploads its results so the alerts and their history are
+      # readable in one place. The gate is the leg below rather than the upload.
+      security-events: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The version comes from the tree rather than from this file, so this
+          # check and every other one that reads go.mod cannot drift apart.
+          go-version-file: go.mod
+          cache: false
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          # Both languages in one job rather than a matrix, so the check-run
+          # name stays "code-scanning" and does not move when a language is
+          # added.
+          languages: go,actions
+          # security-and-quality is wider than the default suite. The default
+          # leaves the quality queries off, and this tree already holds itself
+          # to a wider set than a tool's default in `analysis.yml` for the same
+          # reason: a set that moves when the tool decides is a set nobody
+          # chose.
+          queries: security-and-quality
+
+      - name: Build
+        uses: github/codeql-action/autobuild@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          output: sarif-results
+          # The results are still uploaded. The gate is the next step.
+          upload: always
+
+      - name: Refuse any finding
+        run: |
+          set -euo pipefail
+          # What was examined, printed rather than assumed.
+          shopt -s nullglob
+          files=(sarif-results/*.sarif)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::the analysis produced no SARIF, so this leg judged nothing; failing closed rather than reporting a clean tree"
+            exit 1
+          fi
+          total=0
+          for f in "${files[@]}"; do
+            n=$(jq '[.runs[] | (.results // []) | length] | add // 0' "$f")
+            # The queries are counted from the driver and from the extensions
+            # together. CodeQL writes its packs as extensions and leaves the
+            # driver's own rule list empty, so counting the driver alone printed
+            # "0 rule(s) run" beside a finding that a query had just produced,
+            # which reads as a run that judged nothing. That is the one thing
+            # this line exists to stop it saying.
+            rules=$(jq '[.runs[].tool | (.driver.rules // []), ((.extensions // [])[] | .rules // [])] | map(length) | add // 0' "$f")
+            echo "$(basename "$f"): $rules quer(ies) run, $n finding(s)"
+            total=$((total + n))
+          done
+          if [ "$rules" -eq 0 ]; then
+            echo "::error::the analysis reported no queries at all, so this leg judged nothing; failing closed rather than reporting a clean tree"
+            exit 1
+          fi
+          # What is NOT covered, said here rather than only in this file's
+          # header, so a green run is not read as a scan of everything in the
+          # tree. The suffixes are derived from the tree at the commit being
+          # scanned rather than written out.
+          echo "suffixes present in the tree:"
+          git ls-files | sed -E 's|.*/||; s|^[^.]*$|(no suffix)|; s|.*\.|.|' | sort | uniq -c | sort -rn | sed 's/^/  /'
+          echo "analysed: go, actions."
+          echo "not analysed: the shell inside the workflow files, which CodeQL"
+          echo "  does not take as a language of its own; the workflows are"
+          echo "  judged as actions here and by zizmor separately. Markdown and"
+          echo "  the two configuration files carry no executable code."
+          if [ "$total" -ne 0 ]; then
+            echo "::error::$total code scanning finding(s). A finding here is a failure and not advice; there is no reporting-only mode."
+            exit 1
+          fi
+          echo "no findings."

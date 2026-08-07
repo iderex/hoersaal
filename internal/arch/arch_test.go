@@ -301,3 +301,28 @@ func TestTheTopLevelTheDocumentNamesIsNotRefused(t *testing.T) {
 		t.Errorf("the document's own list was refused: %v", findings)
 	}
 }
+
+// The correction. This rule shipped refusing .git, which is git's own storage
+// and not part of the layout. It passed here and failed in the automated run,
+// because .git is a file in a linked worktree and a directory in a clone, so the
+// same commit was clean on one checkout and red on another. The fixture is kept
+// because the next person to write a rule over the top level will read the
+// directory entries the same way.
+func TestGitsOwnDirectoryIsNotRefused(t *testing.T) {
+	if findings := CheckTopLevel([]string{".git", ".github", "cmd", "docs", "internal"}); len(findings) != 0 {
+		t.Errorf("git's own directory was refused: %v", findings)
+	}
+}
+
+// And the neighbour that stops the line above from being a hole. .github is
+// dotted too and is one of the four, so the exemption is one name rather than a
+// rule about names.
+func TestADottedDirectoryThatIsNotGitsIsStillRefused(t *testing.T) {
+	findings := CheckTopLevel([]string{".git", ".github", ".vendor", "cmd", "docs", "internal"})
+	if len(findings) != 1 {
+		t.Fatalf("wanted one finding, got %d: %v", len(findings), findings)
+	}
+	if !strings.Contains(findings[0].Detail, ".vendor/") {
+		t.Errorf("the finding does not name the directory: %s", findings[0].Detail)
+	}
+}

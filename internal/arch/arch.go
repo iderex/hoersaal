@@ -164,6 +164,17 @@ func refusals(dir, imported string) []string {
 	return out
 }
 
+// GitDir is git's own storage and is not part of the layout this repository
+// decides, so it is not judged against the document.
+//
+// It is named rather than covered by a rule about dotted names, because .github
+// is dotted too and is one of the four. And it is a specific defect rather than a
+// tidiness: .git is a directory in a clone and a file in a linked worktree, so a
+// rule that read it would give two different answers for one commit depending on
+// how the checkout was made. That is how this arrived, on a run that was green on
+// one checkout and red on another.
+const GitDir = ".git"
+
 // CheckTopLevel refuses a top-level entry docs/repository-layout.md does not
 // name. names are the directory names directly under the repository root.
 //
@@ -177,6 +188,9 @@ func CheckTopLevel(names []string) []Finding {
 	}
 	present := map[string]bool{}
 	for _, n := range names {
+		if n == GitDir {
+			continue
+		}
 		present[n] = true
 	}
 

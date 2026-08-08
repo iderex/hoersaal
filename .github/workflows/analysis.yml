@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: The hoersaal contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Static analysis over the whole tree on every pull request (#22).
 #
 # This service will terminate connections from strangers, parse their signalling

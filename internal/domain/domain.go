@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package domain is the vocabulary the rest of the control plane agrees about: a
 // conference, the participants in it, the role each of them holds, the sources
 // they publish, and the subscriptions that decide what each of them receives.

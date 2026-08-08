@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: The hoersaal contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Runs the whole unit suite on every pull request (#18).
 #
 # Headless testability is a birth requirement on this board, so this job is the

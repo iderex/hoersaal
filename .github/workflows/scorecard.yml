@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: The hoersaal contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # OpenSSF Scorecard - supply-chain hygiene self-audit.
 #
 # Scorecard scores the repository against the OpenSSF supply-chain best-practice

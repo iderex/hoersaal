@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package roomcred mints and verifies the credential that admits somebody to
 // one conference, in one role, for a bounded time, and to nothing else.
 //

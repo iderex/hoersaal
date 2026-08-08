@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package random is the only place in this repository that creates a source of
 // randomness. Everything else takes one and is handed one.
 //

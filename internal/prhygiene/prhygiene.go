@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package prhygiene decides the things about a pull request that can be decided
 // by reading it and nothing else.
 //

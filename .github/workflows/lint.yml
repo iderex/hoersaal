@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: The hoersaal contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Formatting over the whole tree on every pull request (#19).
 #
 # Whole tree rather than the changed files. A rule added later must not be able

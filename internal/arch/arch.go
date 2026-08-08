@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package arch refuses the imports docs/repository-layout.md forbids, and the
 // top-level directory that document does not name.
 //

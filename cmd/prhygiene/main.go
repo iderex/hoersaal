@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Command prhygiene runs the deterministic pull request checks over one pull
 // request and exits non-zero on any refusal. It answers issue #96.
 //

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package mediaunit is the adapter between the media plane port and the
 // forwarding unit this service actually runs.
 //

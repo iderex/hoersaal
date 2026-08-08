@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Property tests over the decoder, issue #41.
 //
 // The decoder is the first thing an unauthenticated stranger reaches and it

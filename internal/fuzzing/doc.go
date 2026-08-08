@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package fuzzing holds the fuzz targets for the surfaces a stranger can reach,
 // and nothing else.
 //

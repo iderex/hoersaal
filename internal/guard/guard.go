@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package guard reads the tree and refuses the things issue #27 says must not
 // appear in it: a direct read of the machine's clock, a source of randomness
 // made outside the one place that makes them, and a sleep anywhere at all.

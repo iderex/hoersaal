@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The hoersaal contributors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package boundary is the place a connection out of this process is made, and
 // it refuses one made anywhere else.
 //

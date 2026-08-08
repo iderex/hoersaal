@@ -85,6 +85,24 @@ refuses because there is no route by which such an assertion is accepted rather
 than because a flag is off. A test that proves the refusal bites is what issue
 #104 owes, and it is the difference between a boundary and a promise.
 
+The outward half of that is now `internal/boundary`. It is the one directory in
+which a connection out of this process may be made, it holds none, and its check
+refuses one written anywhere else, over every `.go` file in this repository
+including the tests. Each finding sends the reader back to this document rather
+than restating it. The refusal is proved by fixtures the checker is asked about
+directly rather than by the tree happening to be clean, because a tree with no
+connections in it would pass a rule that had stopped refusing.
+
+`PROSE, NOT ENFORCEMENT` for the inward half, and it is the residual rather than
+the whole. The sentence above is about the place an assertion from another
+installation would enter, and what refuses one is that no route accepts one. An
+absent route is an absence, and no reading of the syntax tree finds an absence.
+What would judge it is a session a test can drive to the end without anything
+crossing, which is the second condition of #104 and waits on #35 and #36. Two
+further gaps are named in `internal/boundary`'s own package comment and are not
+repeated here: a library that dials on a caller's behalf, and a process started
+to do it.
+
 ## What this costs
 
 It closes off the deployment where several small institutions each run their own

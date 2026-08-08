@@ -143,7 +143,9 @@ pull request whose commits, or whose body, do not say which issue they came
 from; `internal/fuzzing` holds the fuzz targets for the surfaces a stranger
 reaches, and holds them together rather than beside each package so that the
 corpus is one thing to carry and every target enters through the exported
-surface a stranger enters through.
+surface a stranger enters through; `internal/secret` holds the type a value
+worth stealing is kept in, whose formatting produces a placeholder under every
+verb, which is issue #86.
 
 Flat rather than grouped, because a grouping is a claim about which packages
 belong together and every such claim so far has been wrong within a milestone.

@@ -21,8 +21,10 @@
 //
 // This package makes no key. It is handed one, which is why it imports no
 // source of randomness and does not appear in the exception the guard package
-// carries for internal/random. Where an operator's key comes from and how it is
-// held is issue #86.
+// carries for internal/random. Where an operator's key comes from is issue #86
+// and waits on there being a configuration to forbid it in. How it is held is
+// answered: the key is a secret.Bytes, so neither it nor the two structs that
+// hold it print it under any verb.
 package roomcred
 
 import (
@@ -32,9 +34,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/iderex/hoersaal/internal/clock"
+	"github.com/iderex/hoersaal/internal/secret"
 )
 
 // The numbers this package refuses against. Each one is argued in
@@ -118,15 +122,27 @@ type Claims struct {
 func (c Claims) Lifetime() time.Duration { return c.Expires.Sub(c.NotBefore) }
 
 // An Issuer mints credentials with one key.
-type Issuer struct{ key []byte }
+type Issuer struct{ key secret.Bytes }
 
 // NewIssuer refuses a key shorter than MinKeyBytes. The key is copied, so a
 // caller that reuses its buffer cannot change what this issuer signs with.
-func NewIssuer(key []byte) (*Issuer, error) {
-	if len(key) < MinKeyBytes {
-		return nil, fmt.Errorf("%w: %d bytes, minimum is %d", ErrKeyTooShort, len(key), MinKeyBytes)
+func NewIssuer(key secret.Bytes) (*Issuer, error) {
+	if key.Len() < MinKeyBytes {
+		return nil, fmt.Errorf("%w: %d bytes, minimum is %d", ErrKeyTooShort, key.Len(), MinKeyBytes)
 	}
-	return &Issuer{key: append([]byte(nil), key...)}, nil
+	return &Issuer{key: append(secret.Bytes(nil), key...)}, nil
+}
+
+// Format writes a placeholder for every verb.
+//
+// The key is an unexported field, and fmt prints an unexported field by
+// reflection without reaching the methods on its type, because it may not take
+// the value out to call one. So secret.Bytes protects itself and cannot protect
+// the struct around it, and the struct around it says so here. Every verb
+// rather than a String, for the reason secret.Format gives: fmt prints the
+// fields themselves for the verbs a Stringer does not cover.
+func (i Issuer) Format(f fmt.State, verb rune) {
+	io.WriteString(f, "roomcred.Issuer{key: "+secret.Placeholder+"}")
 }
 
 // Issue mints a credential for c. It refuses claims it may not mint rather than
@@ -165,27 +181,35 @@ func (i *Issuer) Issue(c Claims) (string, error) {
 	}
 
 	payload := encode(c)
-	mac := sign(i.key, payload)
+	mac := sign(i.key.Reveal(), payload)
 	return base64.RawURLEncoding.EncodeToString(append(payload, mac...)), nil
 }
 
 // A Verifier reads credentials with one key and one clock.
 type Verifier struct {
-	key   []byte
+	key   secret.Bytes
 	clock clock.Clock
 }
 
 // NewVerifier refuses a key shorter than MinKeyBytes and refuses to be built
 // without a clock, because a verifier with no clock is one that cannot refuse
 // an expired credential and would pass every other test in this package.
-func NewVerifier(key []byte, c clock.Clock) (*Verifier, error) {
-	if len(key) < MinKeyBytes {
-		return nil, fmt.Errorf("%w: %d bytes, minimum is %d", ErrKeyTooShort, len(key), MinKeyBytes)
+func NewVerifier(key secret.Bytes, c clock.Clock) (*Verifier, error) {
+	if key.Len() < MinKeyBytes {
+		return nil, fmt.Errorf("%w: %d bytes, minimum is %d", ErrKeyTooShort, key.Len(), MinKeyBytes)
 	}
 	if c == nil {
 		return nil, errors.New("roomcred: a verifier needs a clock")
 	}
-	return &Verifier{key: append([]byte(nil), key...), clock: c}, nil
+	return &Verifier{key: append(secret.Bytes(nil), key...), clock: c}, nil
+}
+
+// Format writes a placeholder for every verb, for the reason Issuer.Format
+// gives. The clock is left out of it as well: a verifier printed while a test
+// is failing should say which verifier it is and not what time it thinks it is,
+// and the clock is the caller's to print.
+func (v Verifier) Format(f fmt.State, verb rune) {
+	io.WriteString(f, "roomcred.Verifier{key: "+secret.Placeholder+"}")
 }
 
 // Verify reads token as a credential admitting to conference. It returns what
@@ -209,7 +233,7 @@ func (v *Verifier) Verify(token string, conference string) (Claims, error) {
 		return Claims{}, fmt.Errorf("%w: too short to hold a signature", ErrMalformed)
 	}
 	payload, mac := raw[:len(raw)-sha256.Size], raw[len(raw)-sha256.Size:]
-	if !hmac.Equal(mac, sign(v.key, payload)) {
+	if !hmac.Equal(mac, sign(v.key.Reveal(), payload)) {
 		return Claims{}, ErrSignature
 	}
 

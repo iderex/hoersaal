@@ -3,12 +3,15 @@ package roomcred
 import (
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/iderex/hoersaal/internal/clock"
+	"github.com/iderex/hoersaal/internal/secret"
 )
 
 // Two keys of the minimum length, written out rather than generated, because a
@@ -460,5 +463,51 @@ func TestTheRoleIsCarriedAndCannotBeChangedByTheHolder(t *testing.T) {
 	}
 	if _, err := v.Verify(base64.RawURLEncoding.EncodeToString([]byte(edited)), c.Conference); !errors.Is(err, ErrSignature) {
 		t.Errorf("a token with the role edited returned %v, want ErrSignature", err)
+	}
+}
+
+// The key is held in an unexported field, which fmt prints by reflection
+// without reaching the methods on secret.Bytes. So the two structs that hold it
+// answer for themselves, and this is the test that says they do. It prints them
+// as a value and as a pointer, because a method with a value receiver is
+// reached through both and a reader should not have to know that.
+func TestPrintingTheHolderOfTheKeyDoesNotRevealIt(t *testing.T) {
+	i, err := NewIssuer(keyA)
+	if err != nil {
+		t.Fatalf("NewIssuer: %v", err)
+	}
+	v, err := NewVerifier(keyA, clock.NewTest(base))
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	// %d is the verb a Stringer does not cover, and it is the one that prints a
+	// key as a list of numbers. %#v is the one a bug report is most often
+	// written with.
+	verbs := []string{"%v", "%+v", "%#v", "%s", "%d", "%x"}
+	for _, subject := range []struct {
+		name  string
+		value any
+	}{
+		{"an issuer", *i},
+		{"an issuer through a pointer", i},
+		{"a verifier", *v},
+		{"a verifier through a pointer", v},
+	} {
+		for _, verb := range verbs {
+			out := fmt.Sprintf(verb, subject.value)
+			if !strings.Contains(out, secret.Placeholder) {
+				t.Errorf("%s of %s is %q, want it to carry %q", verb, subject.name, out, secret.Placeholder)
+			}
+			for name, spelling := range map[string]string{
+				"the bytes themselves":  string(keyA),
+				"lowercase hex":         hex.EncodeToString(keyA),
+				"a list of byte values": strings.Trim(strings.Join(strings.Fields(fmt.Sprint([]byte(keyA))), " "), "[]"),
+			} {
+				if strings.Contains(out, spelling) {
+					t.Errorf("%s of %s contains the key as %s: %q", verb, subject.name, name, out)
+				}
+			}
+		}
 	}
 }

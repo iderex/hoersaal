@@ -80,9 +80,12 @@ where the package is built. Here the document is produced by every build, from t
 compiled artefact rather than from the manifest, and `sbom` already runs. What is
 still owed is attaching it to a release, which is #115 and is why #21 is open.
 
-**CodeQL** and **Analyze (csharp)**, adopted, issue #90. These are two required
-names for one element: the workflow name and the job name of the matrix language.
-The language differs and the element does not.
+**CodeQL** and **Analyze (csharp)**, adopted and already running, issue #90.
+These are two required names for one element there: the workflow name and the
+job name of the matrix language. Here it is one name, `code-scanning`, because
+the languages are analysed in one job rather than in a matrix, so the name does
+not move when a language is added. The language differs and the element does
+not. What is left is requiring it.
 
 **DCO sign-off**, adopted and already running, issues #23 and #28. The gate here
 is the same first-party check rather than an external app, the certificate it
@@ -112,10 +115,15 @@ the prose are checked by different tools.
 **Scorecard supply-chain security**, adopted and already running, issue #28.
 `Scorecard analysis` is in the list of runs above.
 
-**Fuzz (SharpFuzz)**, adapted, issue #94. Non-gating by construction there, on a
-weekly schedule and manual dispatch with no pull-request trigger. The surfaces
-that take bytes from strangers are different ones here, and the protocol decoder
-is the first of them.
+**Fuzz (SharpFuzz)**, adapted and already running, issue #94. Non-gating by
+construction there, on a weekly schedule and manual dispatch with no
+pull-request trigger, and non-gating here for the same reason. The surfaces that
+take bytes from strangers are different ones here, and the protocol decoder is
+the first of them. Two departures, both with their reason at the workflow:
+Go's own fuzzing rather than a fuzzing library, because the toolchain the tree
+already carries has it; and twice a week rather than weekly, because an Actions
+cache is evicted after seven days unread and the corpus is what the schedule
+exists to accumulate.
 
 **Stryker mutation testing**, adapted, issue #93, reporting rather than gating,
 which is the posture it already has there.

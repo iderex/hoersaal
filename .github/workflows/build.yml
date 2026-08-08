@@ -53,3 +53,44 @@ jobs:
 
       - name: Vet
         run: go vet ./...
+
+      - name: Refuse a resolve outside the lock
+        run: |
+          set -euo pipefail
+          # -mod=readonly is the toolchain's own default, and it is named on
+          # every command here anyway, so a GOFLAGS reaching this job from
+          # anywhere cannot turn it off without this step saying so.
+          echo "GOFLAGS: ${GOFLAGS:-<unset>}"
+          go build -mod=readonly ./...
+          # Compiling the test binaries reaches the requirements only the suite
+          # has. A plain build never resolves those, so a dependency that only
+          # a test imports would otherwise sit outside everything this step
+          # judges.
+          go test -mod=readonly -run '^$' ./...
+          # Every module in the graph, against the hashes the lock holds.
+          go mod verify
+          # What the graph is, printed rather than assumed, so a run over an
+          # empty graph cannot be read as one that covered a full one.
+          graph=$(go list -m -f '{{if not .Main}}{{.Path}} {{.Version}}{{end}}' all | sed '/^$/d')
+          echo "modules in the graph:"
+          if [ -n "$graph" ]; then echo "$graph" | sed 's/^/  /'; else echo "  <none>"; fi
+          # The lock has to cover the graph. go.mod declares no requirement
+          # today, so there is nothing for go.sum to hold and none is tracked;
+          # the moment there is one, a lock nobody tracked is the failure.
+          if [ -n "$graph" ] && ! git ls-files --error-unmatch go.sum >/dev/null 2>&1; then
+            echo "::error::the module graph is not empty and go.sum is not tracked, so a build from this commit fetches whatever resolves on the day"
+            exit 1
+          fi
+          # Nothing above may have rewritten the lock. A lock the build updates
+          # quietly is a record of what happened rather than a constraint on it.
+          if ! git diff --exit-code -- go.mod go.sum; then
+            echo "::error::the build changed go.mod or go.sum; run 'go mod tidy' and commit the result rather than letting a build write it"
+            exit 1
+          fi
+          untracked=$(git status --porcelain --untracked-files=all -- go.sum)
+          if [ -n "$untracked" ]; then
+            echo "$untracked"
+            echo "::error::the build created a go.sum nobody tracked; add it in the change that added the dependency"
+            exit 1
+          fi
+          echo "the graph resolves inside the lock and the lock is unchanged."

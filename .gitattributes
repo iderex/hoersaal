@@ -1,0 +1,45 @@
+# Line endings and text encoding, for issue #26.
+#
+# Every tracked text file is stored with a line feed and checked out with a line
+# feed, on every platform. `text=auto` lets git decide which files are text by
+# the same rule it always has, and `eol=lf` overrides whatever a personal
+# `core.autocrlf` setting would otherwise do to the checkout. Without this line
+# a clone on Windows carries a carriage return on every line of every file, the
+# formatter names every source file at once, and a fixture whose bytes have to
+# be exact is quietly a different fixture than the one that was written.
+#
+# The encoding is UTF-8, which is what git stores and what the toolchain reads,
+# and it is not declared here because there is no attribute that would make it
+# refusable. `working-tree-encoding` is the neighbouring attribute and it exists
+# to hold a file in something other than UTF-8, which is the opposite of what
+# this repository wants. The guard on the tracked bytes is what stands behind
+# the encoding, not this file.
+* text=auto eol=lf
+
+# Binary fixtures, excluded by path so that nothing is normalised on the way in
+# or out. A media fixture is a sequence of bytes a decoder is asked about, and a
+# byte changed by a checkout makes it a different question.
+#
+# The suffixes below are the ones this repository expects to hold. Each is
+# declared rather than left to the content heuristic, because the heuristic
+# reads the first few kilobytes for a zero byte, and a short payload that
+# happens to contain none would be normalised without anybody noticing.
+# internal/textbytes reads this file for these patterns rather than holding a
+# second copy of the list, so adding a suffix here is the whole change.
+*.bin binary
+*.gif binary
+*.gz binary
+*.h264 binary
+*.ico binary
+*.ivf binary
+*.jpg binary
+*.mp4 binary
+*.ogg binary
+*.opus binary
+*.pcap binary
+*.pdf binary
+*.png binary
+*.webm binary
+*.woff binary
+*.woff2 binary
+*.zip binary

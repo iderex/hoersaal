@@ -1,0 +1,83 @@
+# Deterministic checks over the pull request itself, for issue #96.
+#
+# The other checks in this tree reason about the code. This one reasons about
+# the change: whether its commits carry the issue they came from, whether it
+# names an issue at all, and whether its body was written rather than pushed as
+# the template. None of the other jobs reads any of that.
+#
+# Deterministic means the same pull request reaches the same verdict every time.
+# There is no service, no bot and no model behind it, so a contributor who is
+# refused can read the rule and see exactly what tripped it, and argue with it.
+# The rules are Go, in internal/prhygiene, and every one of them has a fixture
+# in the suite that reds it, so the proof that a rule bites does not wait for
+# somebody to open a pull request that trips it.
+#
+# What this job deliberately does not check: the sign-off. Every non-merge
+# commit carries one and the DCO job already refuses a commit that does not, so
+# repeating it here would give one defect two red lights and two places to
+# change when the rule moves.
+#
+# This job carries no `name:`, so the check run takes the job id,
+# "pr-hygiene". Branch protection matches the check-run name, so a rename would
+# silently un-require the check while the protection went on reporting itself
+# as active. The id names what is judged rather than the tool that judges it.
+name: PR Hygiene
+
+on:
+  pull_request:
+    # `edited` is here because the body is one of the inputs: adding the issue
+    # reference to a body has to re-run the check that refused it, or the fix
+    # leaves the check red with nothing left to fix.
+    types: [opened, edited, synchronize, reopened]
+
+# Read-only. The job reads the event payload and the commit range and writes
+# nothing back.
+permissions:
+  contents: read
+
+# A newer push on the same pull request supersedes an in-flight run. The verdict
+# is deterministic, so re-running it is cheap and cancelling an obsolete run
+# loses nothing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whole history, because the check walks the commit range the
+          # merge would take rather than reading a summary of it from the API.
+          fetch-depth: 0
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The version comes from the tree rather than from this file, so this
+          # check and every other one that reads go.mod cannot drift apart.
+          go-version-file: go.mod
+          # No module cache. The job has to work from a clean checkout, and a
+          # cold cache must change what a step does rather than whether it runs.
+          cache: false
+
+      - name: Prove the rules refuse what they name
+        # The fixtures run here as well as in the unit job, on purpose. This
+        # check's own verdict is only worth reading if the rules behind it still
+        # bite, and a reader of a green run should not have to open another job
+        # to find that out.
+        run: go test -count=1 -v ./internal/prhygiene
+
+      - name: Judge this pull request
+        # The two ends of the range are passed as environment variables and
+        # never interpolated into the script, so a crafted ref cannot be
+        # evaluated as shell.
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: go run ./cmd/prhygiene

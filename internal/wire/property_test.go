@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Property tests over the decoder, issue #41.
 //
 // The decoder is the first thing an unauthenticated stranger reaches and it

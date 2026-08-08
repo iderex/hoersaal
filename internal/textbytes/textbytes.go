@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package textbytes reads the checkout and refuses a carriage return in a text
 // file, which is what issue #26 is about.
 //

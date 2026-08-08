@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Continuous fuzzing of the surfaces a stranger reaches, for issue #94.
 #
 # This does not run on a pull request and it does not gate a merge. A fuzz run

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Runs the whole unit suite on every pull request (#18).
 #
 # Headless testability is a birth requirement on this board, so this job is the

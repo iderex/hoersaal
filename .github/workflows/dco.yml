@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Developer Certificate of Origin (DCO) sign-off gate (#746). A contributor
 # legal-authorization mechanism - OpenSSF Silver / OSPS-LE-01.01 - implemented as a
 # self-contained first-party check, no external DCO App or third-party action (the

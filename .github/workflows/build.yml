@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Compiles the artefact on every pull request (#17).
 #
 # The check-run name is what the branch protection issue can require, and a

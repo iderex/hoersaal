@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package wire reads what a client sends to the control plane and writes what
 // the control plane sends back.
 //

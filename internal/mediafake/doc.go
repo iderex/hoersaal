@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package mediafake satisfies the media plane port without any media at all.
 //
 // It is empty. Issue #42 fills it. It exists so the control plane can be

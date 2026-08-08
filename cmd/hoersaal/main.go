@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Command hoersaal is the service entry point. It does nothing yet.
 //
 // It exists so that the toolchain decision on issue #15 is proved by a build

@@ -146,6 +146,43 @@ where the cost of asking is argued. Until it is active, signing is what you do
 because the provenance of what reaches the default branch is part of what an
 operator running this software is trusting.
 
+## The two lines every source file opens with
+
+A source file begins with its copyright holder and its licence, in the SPDX
+form, before anything else in the file including the package comment. In a Go
+file:
+
+    // SPDX-FileCopyrightText: 2026 iderex
+    // SPDX-License-Identifier: AGPL-3.0-or-later
+
+In a workflow, the same two lines with the comment marker that language uses:
+
+    # SPDX-FileCopyrightText: 2026 iderex
+    # SPDX-License-Identifier: AGPL-3.0-or-later
+
+Leave a blank line under them so the package comment stays the package comment.
+
+Neither value is chosen in the header. `LICENSE` carries the notice this project
+filled in under "How to Apply These Terms to Your New Programs", and that notice
+already says who holds the copyright and what it grants: `Copyright (C) 2026
+iderex`, and version 3 "or (at your option) any later version", which is
+`-or-later` and not `-only`. `internal/srcheader` reads both out of that file, so
+the day the notice changes is the day the suite asks for the headers to change
+with it rather than the day the repository quietly says two things.
+
+`internal/srcheader` refuses a file without the two lines, and it refuses a file
+that has them somewhere other than the top, because a header below the package
+comment is invisible to whoever copies the first screen of a file, which is the
+case the rule exists for. It reads the licence per top-level directory rather
+than as one constant for the tree, so the day the client libraries get a second
+and more permissive licence is a line in that map rather than a rewrite of every
+header.
+
+It covers Go and the workflow YAML, which are the languages this tree holds.
+`internal/srcheader`'s package comment names what it does not cover and why:
+Markdown, `go.mod`, the checkout declarations at the root, and the fuzz corpus.
+A file in one of those has no header and is not missing one.
+
 ## Branches, commits and the size of a change
 
 A branch is named for the area it touches and then the topic, lowercase, with a

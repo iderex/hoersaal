@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package placement answers which unit carries a conference, and which unit
 // carries a participant arriving at a conference that is already running.
 //

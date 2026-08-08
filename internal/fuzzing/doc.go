@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package fuzzing holds the fuzz targets for the surfaces a stranger can reach,
 // and nothing else.
 //

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Deterministic checks over the pull request itself, for issue #96.
 #
 # The other checks in this tree reason about the code. This one reasons about

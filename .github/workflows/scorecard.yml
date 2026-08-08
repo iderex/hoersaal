@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # OpenSSF Scorecard - supply-chain hygiene self-audit.
 #
 # Scorecard scores the repository against the OpenSSF supply-chain best-practice

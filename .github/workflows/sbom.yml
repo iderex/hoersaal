@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # A bill of materials for the artefact, produced by every build (#21).
 #
 # The person this exists for is an operator running this on their own hardware

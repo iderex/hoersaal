@@ -99,6 +99,53 @@ That difference is the reason this repository gates on the DCO rather than on
 something stronger. A heavier instrument changes who is willing to contribute,
 and it buys nothing this project needs.
 
+## Signing your commits
+
+The sign-off above and a signature are different things and are easy to confuse.
+The trailer is a sentence you assert. A signature is cryptographic, and it is
+the part a stranger can check without trusting anybody's account security.
+
+Sign with SSH, using a key you already have or one made for the purpose:
+
+    ssh-keygen -t ed25519 -C "signing" -f ~/.ssh/id_ed25519_signing
+    git config --global gpg.format ssh
+    git config --global user.signingkey ~/.ssh/id_ed25519_signing.pub
+    git config --global commit.gpgsign true
+
+Then add the same public key to your account as a signing key, which is a
+separate kind from an authentication key and has to be added again even where
+the same key is already there for pushing. GPG works too; if you already sign
+with GPG, keep doing that and set `commit.gpgsign` alone.
+
+Check that it took, on a commit rather than on the configuration:
+
+    git log -1 --format='%h %G? %s'
+
+`G` is a good signature. `N` is no signature, which is the case to fix. `E`
+means the signature could not be checked, which is usually a key the local
+keyring does not have and is what you will see on merge commits made on the
+server.
+
+A signing failure is a stop rather than an obstacle. The way around it is one
+word, in either of two spellings, and neither is to be used:
+
+    git commit --no-gpg-sign
+    git -c commit.gpgsign=false commit
+
+Both produce a commit that builds, tests and reviews exactly like a good one, so
+nothing you run locally will tell you afterwards. Fix the signing instead.
+
+What this is not, today. The protected branch does not require signatures:
+
+    gh api repos/iderex/hoersaal/rulesets/20486335 --jq '[.rules[].type]'
+    ["deletion","non_fast_forward","pull_request"]
+
+So an unsigned commit is refused by nothing here and this section is a
+convention rather than a gate. Issue #99 is where the setting is asked for and
+where the cost of asking is argued. Until it is active, signing is what you do
+because the provenance of what reaches the default branch is part of what an
+operator running this software is trusting.
+
 ## Branches, commits and the size of a change
 
 A branch is named for the area it touches and then the topic, lowercase, with a

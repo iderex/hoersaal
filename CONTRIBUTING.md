@@ -82,6 +82,23 @@ hand:
 
     git rebase --signoff <base>
 
+What the trailer is not, because the two instruments it is mistaken for are
+heavier and ask for something this project does not ask for. It is not a
+copyright assignment: you keep the copyright in what you wrote, and nothing here
+transfers it to anybody. It is not a contributor licence agreement: there is no
+separate document to sign, no record kept apart from the commit itself, and no
+grant beyond the one the licence already makes.
+
+What it is instead is a statement about the contribution, made by the person
+making it, that they have the right to submit it under this repository's
+licence. That licence is AGPL-3.0, in [LICENSE](LICENSE), and clause (a) of the
+[DCO](DCO) is the sentence the trailer asserts about it. Nothing more is
+collected and nothing more is meant.
+
+That difference is the reason this repository gates on the DCO rather than on
+something stronger. A heavier instrument changes who is willing to contribute,
+and it buys nothing this project needs.
+
 ## Branches, commits and the size of a change
 
 A branch is named for the area it touches and then the topic, lowercase, with a

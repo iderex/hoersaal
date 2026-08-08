@@ -23,8 +23,9 @@
 # What this job does not cover, written here rather than left to be found. It
 # formats Go and nothing else. The workflow files are YAML, and zizmor audits
 # what they do rather than how they are laid out. The documentation is Markdown
-# and nothing in this tree formats or lints it yet; #97 is where that is owed.
-# Neither is quietly included in "the whole tree" above.
+# and is judged by doclint.yml instead, which is a separate check run for the
+# reason its own header gives. Neither is quietly included in "the whole tree"
+# above.
 #
 # The job carries no `name:`, so the check run takes the job id, "lint". Branch
 # protection matches the check-run name, so a rename would silently un-require

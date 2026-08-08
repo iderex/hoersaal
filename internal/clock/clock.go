@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: The hoersaal contributors
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package clock is the only place in this repository that reads the machine's
 // clock. Everything else takes a Clock and is handed one.

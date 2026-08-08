@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: The hoersaal contributors
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package mediaport is the interface the control plane uses to talk to a
 // forwarding unit, and the vocabulary that goes with it.

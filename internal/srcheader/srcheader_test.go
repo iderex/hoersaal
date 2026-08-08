@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: The hoersaal contributors
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package srcheader
 
@@ -103,25 +103,25 @@ func TestTheHeaderIsRefusedWhenItIsWrong(t *testing.T) {
 			name: "the identifier under the package comment",
 			path: "internal/placement/doc.go",
 			src: "// Package placement decides where a conference goes.\npackage placement\n\n" +
-				good("//", "AGPL-3.0-only"),
+				good("//", "AGPL-3.0-or-later"),
 			want: "rather than on the first two lines",
 		},
 		{
-			name: "or-later rather than only",
+			name: "only rather than or-later",
 			path: "internal/placement/doc.go",
-			src:  good("//", "AGPL-3.0-or-later"),
-			want: `declares "AGPL-3.0-or-later"`,
+			src:  good("//", "AGPL-3.0-only"),
+			want: `declares "AGPL-3.0-only"`,
 		},
 		{
-			name: "a holder nobody assigned to",
+			name: "a holder LICENSE does not name",
 			path: "internal/placement/doc.go",
-			src:  "// " + CopyrightTag + " Nils Lehnen\n// " + LicenceTag + " AGPL-3.0-only\n",
+			src:  "// " + CopyrightTag + " 2026 The hoersaal contributors\n// " + LicenceTag + " AGPL-3.0-or-later\n",
 			want: "as the copyright holder",
 		},
 		{
 			name: "the two lines in the other order",
 			path: "internal/placement/doc.go",
-			src:  "// " + LicenceTag + " AGPL-3.0-only\n// " + CopyrightTag + " " + Holder + "\n",
+			src:  "// " + LicenceTag + " AGPL-3.0-or-later\n// " + CopyrightTag + " " + Holder + "\n",
 			want: "the order is",
 		},
 		{
@@ -133,19 +133,19 @@ func TestTheHeaderIsRefusedWhenItIsWrong(t *testing.T) {
 		{
 			name: "a Go comment marker in a workflow",
 			path: ".github/workflows/unit.yml",
-			src:  good("//", "AGPL-3.0-only"),
+			src:  good("//", "AGPL-3.0-or-later"),
 			want: "does not open with the identifier",
 		},
 		{
 			name: "a directory no entry names",
 			path: "clients/js/index.go",
-			src:  good("//", "AGPL-3.0-only"),
+			src:  good("//", "AGPL-3.0-or-later"),
 			want: "no entry in srcheader.Licences names",
 		},
 		{
 			name: "a file at the repository root",
 			path: "tool.go",
-			src:  good("//", "AGPL-3.0-only"),
+			src:  good("//", "AGPL-3.0-or-later"),
 			want: "no entry in srcheader.Licences names",
 		},
 		{
@@ -186,27 +186,27 @@ func TestTheHeaderIsAcceptedWhenItIsRight(t *testing.T) {
 		{
 			name: "a Go file",
 			path: "internal/placement/doc.go",
-			src:  good("//", "AGPL-3.0-only") + "\n// Package placement decides where a conference goes.\npackage placement\n",
+			src:  good("//", "AGPL-3.0-or-later") + "\n// Package placement decides where a conference goes.\npackage placement\n",
 		},
 		{
 			name: "a workflow",
 			path: ".github/workflows/unit.yml",
-			src:  good("#", "AGPL-3.0-only") + "\nname: Unit\n",
+			src:  good("#", "AGPL-3.0-or-later") + "\nname: Unit\n",
 		},
 		{
 			name: "a command",
 			path: "cmd/hoersaal/main.go",
-			src:  good("//", "AGPL-3.0-only") + "\npackage main\n",
+			src:  good("//", "AGPL-3.0-or-later") + "\npackage main\n",
 		},
 		{
 			name: "a trailing space an editor left",
 			path: "internal/placement/doc.go",
-			src:  "// " + CopyrightTag + " " + Holder + "  \n// " + LicenceTag + " AGPL-3.0-only \n",
+			src:  "// " + CopyrightTag + " " + Holder + "  \n// " + LicenceTag + " AGPL-3.0-or-later \n",
 		},
 		{
 			name: "carriage returns from a checkout that converted them",
 			path: "internal/placement/doc.go",
-			src:  strings.ReplaceAll(good("//", "AGPL-3.0-only"), "\n", "\r\n"),
+			src:  strings.ReplaceAll(good("//", "AGPL-3.0-or-later"), "\n", "\r\n"),
 		},
 	}
 
@@ -234,24 +234,73 @@ func TestAFileTheCheckDoesNotCoverIsNotJudged(t *testing.T) {
 	}
 }
 
-// TestTheLicenceEveryDirectoryCarriesIsTheOneTheTreeHolds stops the map above
-// from drifting away from LICENSE. Every entry says AGPL today, and the file at
-// the root is what says whether that is still true. It reads the licence's own
-// title rather than a copy of it kept here.
-func TestTheLicenceEveryDirectoryCarriesIsTheOneTheTreeHolds(t *testing.T) {
+// TestTheHeaderAgreesWithTheNoticeInLicense is the leg that would have caught
+// this package's own first mistake. Holder and Licences were argued from the top
+// of LICENSE and from the readme, and the notice at the bottom of LICENSE said a
+// different holder and a different grant. Nothing read that notice, so 47 files
+// were written with the wrong two lines and every test passed.
+//
+// The two constants are now answers to a file rather than positions taken here,
+// and this is where they are held to it.
+func TestTheHeaderAgreesWithTheNoticeInLicense(t *testing.T) {
 	src, err := os.ReadFile(filepath.Join("..", "..", "LICENSE"))
 	if err != nil {
 		t.Fatalf("reading LICENSE: %v", err)
 	}
-	title := "GNU AFFERO GENERAL PUBLIC LICENSE"
-	version := "Version 3"
-	if !strings.Contains(string(src), title) || !strings.Contains(string(src), version) {
-		t.Fatalf("LICENSE is not %s %s, and every entry in srcheader.Licences says it is", title, version)
+	holder, orLater, err := ReadNotice(src)
+	if err != nil {
+		t.Fatalf("reading the notice out of LICENSE: %v", err)
 	}
+	if holder != Holder {
+		t.Errorf("LICENSE's notice says the copyright is %q and every header in this tree says %q", holder, Holder)
+	}
+	want := LicenceFromNotice(orLater)
 	for dir, id := range Licences {
-		if !strings.HasPrefix(id, "AGPL-3.0") {
-			t.Errorf("%s/ carries %q and LICENSE is %s %s", dir, id, title, version)
+		if id != want {
+			t.Errorf("LICENSE's notice amounts to %q and %s/ carries %q", want, dir, id)
 		}
+	}
+}
+
+// TestReadNoticeTellsTheTwoGrantsApart is the proof that the leg above is
+// reading rather than agreeing. The difference between the two identifiers is
+// one sentence in the notice, so a reader that returned the same answer for both
+// notices would hold the map to nothing.
+func TestReadNoticeTellsTheTwoGrantsApart(t *testing.T) {
+	base := "            " + NoticeHeading + "\n\n" +
+		"    hoersaal, a self-hosted conferencing service that scales itself.\n" +
+		"    Copyright (C) 2026  iderex\n\n" +
+		"    This program is free software: you can redistribute it and/or modify\n" +
+		"    it under the terms of the GNU Affero General Public License as published by\n" +
+		"    the Free Software Foundation, "
+
+	orLaterNotice := base + "either version 3 of the License, or\n    (at your option) any later version.\n"
+	onlyNotice := base + "version 3 of the License.\n"
+
+	holder, orLater, err := ReadNotice([]byte(orLaterNotice))
+	if err != nil {
+		t.Fatalf("reading a notice that offers a later version: %v", err)
+	}
+	if holder != "2026 iderex" {
+		t.Errorf("read the holder as %q from a notice saying \"Copyright (C) 2026  iderex\"", holder)
+	}
+	if !orLater || LicenceFromNotice(orLater) != "AGPL-3.0-or-later" {
+		t.Errorf("a notice offering a later version came back as %q", LicenceFromNotice(orLater))
+	}
+
+	_, orLater, err = ReadNotice([]byte(onlyNotice))
+	if err != nil {
+		t.Fatalf("reading a notice that offers no later version: %v", err)
+	}
+	if orLater || LicenceFromNotice(orLater) != "AGPL-3.0-only" {
+		t.Errorf("a notice offering no later version came back as %q", LicenceFromNotice(orLater))
+	}
+
+	if _, _, err := ReadNotice([]byte("terms and conditions and nothing else\n")); err == nil {
+		t.Error("a licence with no notice in it was read as one that has a holder")
+	}
+	if _, _, err := ReadNotice([]byte(NoticeHeading + "\n\nno copyright line here\n")); err == nil {
+		t.Error("a notice naming no holder was read as one that does")
 	}
 }
 

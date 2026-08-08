@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: The hoersaal contributors
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package srcheader refuses a source file that does not open by naming its
 // copyright holder and its licence, which is what issue #101 is about.
@@ -53,20 +53,16 @@ import (
 	"strings"
 )
 
-// Holder is the copyright holder every header names.
+// Holder is the copyright holder every header names, as the year and the name.
 //
-// It is the contributors rather than a person or a company because nothing in
-// this repository collects an assignment. CONTRIBUTING.md says of the sign-off
-// that it is not a copyright assignment and not a contributor licence
-// agreement, so every contributor keeps their own copyright, and a header naming
-// one name would assert an assignment the tree refuses to ask for.
-//
-// There is no year in it, and the omission is deliberate. The SPDX form makes
-// the year optional. A year in a header is a number that is wrong the following
-// January in every file nobody edited, and no reading of the tree can tell a
-// stale year from a correct one, so the check would either police a number it
-// cannot judge or ignore the field it demanded.
-const Holder = "The hoersaal contributors"
+// It is not chosen here. LICENSE carries the notice this project filled in under
+// "How to Apply These Terms to Your New Programs", and that notice already says
+// who holds the copyright and from when. A header inventing a different holder
+// would put two answers in one repository, and the one in LICENSE is the one an
+// operator reads. ReadNotice is what takes it out of the file, and
+// TestTheHeaderAgreesWithTheNoticeInLicense is what refuses this constant the day
+// the notice changes and this does not.
+const Holder = "2026 iderex"
 
 // The two tags, in the order they have to appear. They are the SPDX names
 // rather than names invented here, because a machine reading a vendored copy of
@@ -80,15 +76,17 @@ const (
 // a directory with no entry here is refused, and adding a directory is adding a
 // line to this map in the change that creates it.
 //
-// Every entry says AGPL-3.0-only today. `-only` rather than `-or-later` because
-// that is what the tree says and no more: the licence entry on issue #1 was
-// answered "AGPL-3.0", LICENSE holds the GNU AGPL version 3 text, and no file in
-// this repository offers the reader a later version. Writing `-or-later` here
-// would grant, in a header, a term nobody decided.
+// Every entry says AGPL-3.0-or-later today, and the suffix is read out of
+// LICENSE rather than picked. The notice this project filled in offers the
+// reader "either version 3 of the License, or (at your option) any later
+// version", which is `-or-later` and not `-only`; the two are different grants
+// and SPDX has separate identifiers for them precisely because the difference is
+// not cosmetic. TestTheHeaderAgreesWithTheNoticeInLicense holds the map to what
+// the notice says.
 var Licences = map[string]string{
-	".github":  "AGPL-3.0-only",
-	"cmd":      "AGPL-3.0-only",
-	"internal": "AGPL-3.0-only",
+	".github":  "AGPL-3.0-or-later",
+	"cmd":      "AGPL-3.0-or-later",
+	"internal": "AGPL-3.0-or-later",
 }
 
 // Markers is the line comment each covered language opens a comment with, keyed
@@ -161,7 +159,7 @@ func CheckFile(path string, src []byte) []Finding {
 
 	if got.holder != Holder {
 		findings = append(findings, Finding{Path: path, Line: 1, Detail: fmt.Sprintf(
-			"names %q as the copyright holder and every file here names %q; nothing in this repository collects an assignment, so the holder is the contributors",
+			"names %q as the copyright holder and LICENSE's own notice says %q; the two have to be the same sentence, and LICENSE is the one an operator reads",
 			got.holder, Holder)})
 	}
 	if got.licence != want {
@@ -277,6 +275,61 @@ func CheckTree(root string) (findings []Finding, read []string, err error) {
 	})
 	sort.Strings(read)
 	return findings, read, err
+}
+
+// NoticeHeading is where LICENSE stops being the licence text and starts being
+// the notice this project filled in for itself. Everything ReadNotice answers
+// comes from below this line, because the same words appear above it as terms
+// rather than as this repository's statement about itself.
+const NoticeHeading = "How to Apply These Terms to Your New Programs"
+
+// ReadNotice takes the copyright holder and the version grant out of LICENSE's
+// own notice.
+//
+// It exists because this was got wrong once, in the direction that matters. The
+// first version of this package read the top of LICENSE and the README, decided
+// from them that the holder was the contributors and the grant was version 3
+// only, and wrote 47 headers saying so. The notice at the bottom of the same
+// file said otherwise in both places, and it is the notice an operator reads.
+// So the constants above are now derived from the file rather than argued from
+// what surrounds it, and the suite refuses them when they disagree.
+//
+// holder comes back in the SPDX form, the year and the name with the notice's
+// double space collapsed. orLater is whether the notice offers a later version,
+// which is the whole difference between the two identifiers.
+func ReadNotice(license []byte) (holder string, orLater bool, err error) {
+	text := string(license)
+	i := strings.Index(text, NoticeHeading)
+	if i < 0 {
+		return "", false, fmt.Errorf("LICENSE holds no %q section, so nothing says who holds the copyright", NoticeHeading)
+	}
+	notice := text[i:]
+
+	for _, line := range strings.Split(notice, "\n") {
+		rest, ok := strings.CutPrefix(strings.TrimSpace(line), "Copyright (C) ")
+		if !ok {
+			continue
+		}
+		holder = strings.Join(strings.Fields(rest), " ")
+		break
+	}
+	if holder == "" {
+		return "", false, fmt.Errorf("the %q section of LICENSE names no copyright holder", NoticeHeading)
+	}
+
+	orLater = strings.Contains(notice, "(at your option) any later version")
+	return holder, orLater, nil
+}
+
+// LicenceFromNotice is the identifier the notice's grant amounts to. It is one
+// line, and it is here rather than in the suite so that the mapping from a grant
+// to an identifier is stated once and read by whoever wants to know why the
+// headers say what they say.
+func LicenceFromNotice(orLater bool) string {
+	if orLater {
+		return "AGPL-3.0-or-later"
+	}
+	return "AGPL-3.0-only"
 }
 
 // topLevel is the first element of a path from the repository root. A file at

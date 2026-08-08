@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: The hoersaal contributors
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Static analysis of the GitHub Actions workflows themselves (zizmor). The
 # workflow YAML is release-critical attack surface - publish-beta.yml runs on

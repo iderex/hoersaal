@@ -1,0 +1,105 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Lints the documentation the way lint.yml lints the code (#97).
+#
+# This project has more prose than most, because the decisions are the product as
+# much as the code is. A document that drifts is the same defect class as code
+# that drifts, and until this job existed nothing read one.
+#
+# The part that matters is the references. Documents here name each other, name
+# the packages, and name the workflows, and a reference that stops resolving
+# turns that whole arrangement into decoration without anything going red. The
+# formatting rules are the smaller half and are there so that a change to a
+# document is a change to its meaning rather than a rewrap.
+#
+# The means is Go, in cmd/doclint over internal/doclint. It adds no language and
+# no runtime the tree does not already carry, every rule is exercised by a
+# fixture in the suite, and the alternative is the reference gate's prettier,
+# which would add Node to a tree that has no other reason to hold it and which
+# formats rather than resolves. The reference for that comparison is
+# docs/reference-gate-parity.md, where prettier is recorded as adapted into two
+# elements, of which this is the second.
+#
+# What is outside this job, written here rather than left to be found. No address
+# beginning http is fetched. A checker that followed them would turn an unrelated
+# change red the day somebody else's site moved, and these documents point at
+# other projects a great deal. The run prints how many it did not follow, so a
+# clean verdict cannot be read as one that checked them. It is zero today,
+# because every address these documents carry sits inside a code block, and that
+# is a fact about the prose rather than about the job.
+#
+# Also outside: a path reference whose first element is not one of the four
+# top-level directories docs/repository-layout.md fixes. Documents here name
+# branches and files in other repositories that look exactly like paths, and
+# refusing those would be this job refusing correct prose. The bound is
+# doclint.IsPathReference and the argument for it is beside it.
+#
+# The job carries no `name:`, so the check run takes the job id, "doclint".
+# Branch protection matches the check-run name, so a rename would silently
+# un-require the check while the protection went on reporting itself as active.
+# The name is not to be changed.
+name: Documentation
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Read-only: the job reads the tree and writes nothing back.
+permissions:
+  contents: read
+
+# A newer push on the same ref supersedes an in-flight run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  doclint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The version comes from the tree rather than from this file, so this
+          # job and every other check that reads go.mod cannot drift apart.
+          go-version-file: go.mod
+          # No module cache. The job has to work from a clean checkout, and a
+          # cold cache must change how long a step takes rather than what it
+          # judges.
+          cache: false
+
+      - name: Judge the documents
+        run: go run -mod=readonly ./cmd/doclint .
+
+      - name: Prove the rules still refuse
+        run: |
+          set -euo pipefail
+          # The run above says the tree is clean. What it cannot say is whether
+          # the rules would have refused anything, and a checker whose rules
+          # have quietly stopped biting reports exactly the same verdict. So the
+          # suite that holds a fixture per rule runs here too, in the same job,
+          # rather than only inside `unit`.
+          go test -mod=readonly -count=1 ./internal/doclint
+
+      - name: Refuse a run that judged nothing
+        run: |
+          set -euo pipefail
+          # The command exits non-zero over an empty tree, and that leg is worth
+          # having only if it fires. It is proved on every run rather than once,
+          # against a directory holding no document.
+          mkdir -p "${RUNNER_TEMP}/empty"
+          if go run -mod=readonly ./cmd/doclint "${RUNNER_TEMP}/empty"; then
+            echo "::error::the check passed over a tree holding no document, so a run that read nothing would report itself clean"
+            exit 1
+          fi
+          echo "a run that reads no document is refused."

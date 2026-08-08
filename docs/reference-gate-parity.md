@@ -104,9 +104,11 @@ in the element.
 
 **prettier**, adapted into two, issues #19 and #97. Theirs formats the languages a
 plugin repository carries. Here formatting the code is `lint`, which already runs
-`gofmt` over the whole tree, and formatting and linting the documentation is #97,
-which nothing does yet. A single element there is two here because the code and
-the prose are checked by different tools.
+`gofmt` over the whole tree, and the documentation is `doclint`, which also runs
+here. A single element there is two here because the code and the prose are
+checked by different tools. The prose half is not only formatting: what it
+mostly does is resolve the references documents make into this tree, which
+prettier has no counterpart for.
 
 **dependency-review**, adopted and already running, issues #20 and #28.
 
@@ -138,8 +140,8 @@ of a single login to assert.
 **Repo Invariant Lint (Opengrep)** is the workflow behind `Enforce greppable
 invariants` above and is not a second element.
 
-**Wiki Lint**, adapted, issue #97. There is no wiki here, and the documentation in
-the tree is what #97 covers.
+**Wiki Lint**, adapted and already running, issue #97. There is no wiki here, and
+the documentation in the tree is what `doclint` covers instead.
 
 **Manifest freshness**, dropped. It asserts that a published plugin manifest lists
 the newest release of each generation. There is no manifest and no plugin channel

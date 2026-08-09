@@ -4,13 +4,21 @@
 // Package placement answers which unit carries a conference, and which unit
 // carries a participant arriving at a conference that is already running.
 //
-// It answers the first of those two questions. Issue #57 is the policy for a
-// conference that is on no unit yet, and it is here, argued in
-// docs/decisions/new-conference-placement.md and implemented as Naive. Issue #58
-// is the arriving participant, and nothing here answers it: PlaceConference is
-// the only question this package takes, and the third refusal reason the seam
-// names, the conference reaching its unit ceiling, arrives with that issue
-// because a conference on no unit cannot have reached one.
+// It answers both. Issue #57 is the policy for a conference that is on no unit
+// yet, argued in docs/decisions/new-conference-placement.md. Issue #58 is the
+// participant arriving at a conference that is already running, and it is where
+// the third refusal reason the seam names arrives, because a conference on no
+// unit cannot have reached its unit ceiling. One policy answers both, as Naive,
+// behind two interfaces: the questions take different records and the second is
+// the only one with a conference to keep together.
+//
+// One thing this package holds that no measurement supports yet, said here
+// rather than left to be found. The unit ceiling is passed in rather than
+// derived, because the bound in docs/decisions/room-topology.md is over two
+// figures neither of which is in any record the placer is handed and neither of
+// which has a value on this board. Issue #59 is where that figure comes from.
+// Until it does, a caller filling the record in is choosing the number, and
+// nothing here can tell a derived ceiling from a guessed one.
 //
 // The records the placer reads are declared here rather than taken from the pool
 // on issue #56, because the rule below leaves nowhere else for them: the model

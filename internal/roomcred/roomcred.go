@@ -145,6 +145,9 @@ func NewIssuer(key secret.Bytes) (*Issuer, error) {
 // rather than a String, for the reason secret.Format gives: fmt prints the
 // fields themselves for the verbs a Stringer does not cover.
 func (i Issuer) Format(f fmt.State, verb rune) {
+	// #nosec G104 -- a Format method has nowhere to return an error to, and the
+	// write failing is reported to whoever started the printing, for the reason
+	// secret.Bytes.Format gives at the same call.
 	io.WriteString(f, "roomcred.Issuer{key: "+secret.Placeholder+"}")
 }
 
@@ -212,6 +215,9 @@ func NewVerifier(key secret.Bytes, c clock.Clock) (*Verifier, error) {
 // is failing should say which verifier it is and not what time it thinks it is,
 // and the clock is the caller's to print.
 func (v Verifier) Format(f fmt.State, verb rune) {
+	// #nosec G104 -- a Format method has nowhere to return an error to, and the
+	// write failing is reported to whoever started the printing, for the reason
+	// secret.Bytes.Format gives at the same call.
 	io.WriteString(f, "roomcred.Verifier{key: "+secret.Placeholder+"}")
 }
 
@@ -275,10 +281,18 @@ func encode(c Claims) []byte {
 	out := make([]byte, 0, 64+len(c.Conference)+len(c.Subject)+len(c.Role))
 	out = append(out, Version)
 	for _, s := range []string{c.Conference, c.Subject, c.Role} {
+		// #nosec G115 -- Issue refuses any of these three fields above
+		// MaxFieldBytes, which is 128, before encode is reached, so the length
+		// that reaches this conversion is bounded far below what a uint16 holds.
 		out = binary.BigEndian.AppendUint16(out, uint16(len(s)))
 		out = append(out, s...)
 	}
+	// #nosec G115 -- the window is written as two counts of seconds since the
+	// epoch and read back by the matching int64 conversion in decode, so the
+	// pair round-trips every instant either end can hold.
 	out = binary.BigEndian.AppendUint64(out, uint64(c.NotBefore.Unix()))
+	// #nosec G115 -- the other end of the same window, converted the same way
+	// and read back by the same conversion.
 	out = binary.BigEndian.AppendUint64(out, uint64(c.Expires.Unix()))
 	return out
 }
@@ -320,7 +334,12 @@ func decode(payload []byte) (Claims, error) {
 		Conference: fields[0],
 		Subject:    fields[1],
 		Role:       fields[2],
-		NotBefore:  time.Unix(int64(binary.BigEndian.Uint64(rest[:8])), 0).UTC(),
-		Expires:    time.Unix(int64(binary.BigEndian.Uint64(rest[8:])), 0).UTC(),
+		// #nosec G115 -- the reverse of encode's conversion on bytes whose
+		// signature has already verified, so the value read here is one this
+		// build wrote. A count of seconds that did not fit an int64 could not
+		// have been written by encode and could not have been signed.
+		NotBefore: time.Unix(int64(binary.BigEndian.Uint64(rest[:8])), 0).UTC(),
+		// #nosec G115 -- the other end of the same window, for the same reason.
+		Expires: time.Unix(int64(binary.BigEndian.Uint64(rest[8:])), 0).UTC(),
 	}, nil
 }

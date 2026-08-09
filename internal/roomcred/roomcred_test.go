@@ -323,11 +323,16 @@ func TestASignedPayloadThisBuildCannotReadIsRefused(t *testing.T) {
 	good := encode(lecture())
 
 	field := func(s string) []byte {
+		// #nosec G115 -- every string handed to this helper is written a few
+		// lines below and none is longer than a sentence.
 		out := binary.BigEndian.AppendUint16(nil, uint16(len(s)))
 		return append(out, s...)
 	}
 	window := func() []byte {
+		// #nosec G115 -- base is a fixed instant in this file, so both counts
+		// of seconds are known at the time the test is read.
 		out := binary.BigEndian.AppendUint64(nil, uint64(base.Unix()))
+		// #nosec G115 -- the other end of the same fixed window.
 		return binary.BigEndian.AppendUint64(out, uint64(base.Add(time.Hour).Unix()))
 	}
 	// A field whose length says more bytes follow than actually do.

@@ -20,39 +20,40 @@
 # module rather than through an action, so what runs is decided in this file
 # and by the module checksum database.
 #
-# ## What is enforced and what is not
+# ## What is enforced
 #
-# Five rule classes are reported and not enforced, and the tree trips every one
-# of them today. Gating on them would mean a suppression at every site in one
-# change, spread across packages whose own issues are still open, so they are
-# declared here where a reader meets them rather than in a file nobody opens.
-# #159 is where they are retired, one class at a time, by the issue that owns
-# the code each class lands in.
+# The whole rule set. There is no reported-but-not-enforced list here and there
+# is no setting that would hold one: a finding from any class fails the job.
 #
-# The classes and why each one fires here:
+# Five classes were reported rather than enforced while the tree carried
+# instances of each with no answer written at them, and #159 retired all five.
+# What replaced the list is an answer at every one of those sites, in the form
+# below, so the reason a class does not fire is readable where the code is
+# rather than in this file. The five, and what each answer says:
 #
 #   G104  an unhandled error, in the three `Format` methods that write a
-#         placeholder into a `fmt.State`, whose error is not actionable
+#         placeholder into a `fmt.State`, which has nowhere to return one to
 #   G115  an integer conversion that could overflow, in the credential encoder,
 #         where every field is bounded at `MaxFieldBytes` before it is reached
 #   G204  a subprocess launched with a variable, in the pull request hygiene
-#         command, which runs git over a commit range
-#   G304  a file opened by a variable path, in the eight checkers that walk this
-#         repository at build time
+#         command, whose two ends are held to the shape git writes for an object
+#         name before either becomes an argument
+#   G304  a file opened by a variable path, in the checkers that walk this
+#         repository at build time and in the payload the runner hands the pull
+#         request hygiene command
 #   G404  a source of randomness that is not cryptographic, in the one package
 #         that owns non-cryptographic randomness by decision on #27
 #
-# Each of those is an answer rather than a dismissal, and each is written down
-# on #159 with the command that shows it.
+# The enforced set also carries the classes this service will actually meet:
+# hardcoded credentials, a weak or broken cipher or hash, a disabled certificate
+# check, a server with no timeouts, a listener bound to every interface, and
+# unsafe pointer use.
 #
-# Everything else is enforced and a finding fails the job. That set includes the
-# classes this service will actually meet: hardcoded credentials, a weak or
-# broken cipher or hash, a disabled certificate check, a server with no
-# timeouts, a listener bound to every interface, and unsafe pointer use.
-#
-# The report leg runs the whole set on every run and prints the count per class,
-# so a green job cannot be read as gosec having found nothing. A run that
-# covered less than the whole set says so.
+# The report leg runs on every run and prints the count per class and where each
+# finding is, so a green job cannot be read as gosec having found nothing. A run
+# that covered less than the whole set says so. The gating leg then re-derives
+# the verdict with its own invocation rather than reading the document the first
+# leg wrote, so the two cannot agree by construction.
 #
 # ## Suppression
 #
@@ -95,9 +96,6 @@ jobs:
       # Pinned. An analyser that resolves to whatever is newest changes what the
       # gate refuses without anybody editing the gate.
       GOSEC_VERSION: "v2.22.9"
-      # The classes reported rather than enforced, in one place so the two legs
-      # below cannot disagree about which they are. #159 retires them.
-      GOSEC_REPORTED_ONLY: "G104,G115,G204,G304,G404"
     steps:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -143,8 +141,8 @@ jobs:
           echo "packages:"
           go list ./... | sed 's/^/  /'
           # -no-fail so this leg reports and the next one gates. The whole set
-          # runs here, including the classes the gate does not enforce, so a
-          # green job cannot be read as gosec having found nothing.
+          # runs here, which is now also the whole set the next leg refuses, so
+          # a green job cannot be read as gosec having found nothing.
           gosec -no-fail -tests -fmt=json -out=all.json ./... || true
           if [ ! -s all.json ]; then
             echo "::error::the report leg produced no document, so it judged nothing; failing closed rather than reporting a clean tree"
@@ -165,26 +163,25 @@ jobs:
           echo "files analysed: ${files}"
           echo "suppressions honoured: ${nosec}"
           echo "findings over the whole rule set: ${total}"
+          echo "no class is reported rather than enforced; every rule this analyser carries gates."
           if [ "$total" -gt 0 ]; then
-            echo "by class, with what the gate does with each:"
-            jq -r --arg reported "${GOSEC_REPORTED_ONLY}" '
-              ($reported | split(",")) as $r
-              | [.Issues[].rule_id] | group_by(.)
+            echo "by class, every one of them enforced:"
+            jq -r '
+              [.Issues[].rule_id] | group_by(.)
               | map({rule: .[0], n: length})
               | sort_by(.rule)[]
-              | . as $c
-              | "  \($c.rule)  \($c.n)  " + (if ($r | index($c.rule)) then "reported, retired by #159" else "ENFORCED" end)
+              | "  \(.rule)  \(.n)  ENFORCED"
             ' all.json
             echo "where each finding is:"
             jq -r '.Issues[] | "  \(.rule_id) \(.file):\(.line)"' all.json | sed "s|${PWD}/||" | sort
           fi
 
-      - name: Refuse any finding outside the reported classes
+      - name: Refuse any finding
         run: |
           set -euo pipefail
           export PATH="$(go env GOPATH)/bin:${PATH}"
-          echo "reported rather than enforced: ${GOSEC_REPORTED_ONLY}"
-          gosec -tests -exclude="${GOSEC_REPORTED_ONLY}" -fmt=json -out=gated.json -no-fail ./...
+          echo "no rule class is excluded here; the enforced set is the whole set the leg above printed."
+          gosec -tests -fmt=json -out=gated.json -no-fail ./...
           if [ ! -s gated.json ]; then
             echo "::error::the gating leg produced no document, so it judged nothing; failing closed rather than reporting a clean tree"
             exit 1

@@ -60,10 +60,6 @@ type Bytes []byte
 // secret printed as a list of decimal numbers is a secret printed. Implementing
 // Formatter is the only way to answer for the verbs nobody thought of.
 func (b Bytes) Format(f fmt.State, verb rune) {
-	// #nosec G104 -- a Format method has nowhere to return an error to. What a
-	// fmt.State reports is the caller's write failing, which fmt collects and
-	// hands back at the call that started the printing, so handling it here
-	// would mean deciding on behalf of a caller that is already being told.
 	io.WriteString(f, Placeholder)
 }
 

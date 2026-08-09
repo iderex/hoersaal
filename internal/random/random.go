@@ -19,11 +19,6 @@ import "math/rand/v2"
 
 // Seeded returns a source that produces the same numbers for the same seed. A
 // test names its seed, and a failure is reproduced by naming it again.
-//
-// #nosec G404 -- this package is the declared home of the non-cryptographic
-// source, and reproducibility is the property it exists for. Nothing a secret
-// depends on comes from here; the package comment above says where those come
-// from and internal/guard refuses either source anywhere else.
 func Seeded(seed uint64) *rand.Rand { return rand.New(rand.NewPCG(seed, seed)) }
 
 // System returns a source seeded by the runtime. A service uses this; a test

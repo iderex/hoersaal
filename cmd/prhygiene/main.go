@@ -145,11 +145,6 @@ func commitRange(base, head string) ([]prhygiene.Commit, error) {
 		}
 	}
 	const sep = "\x1f"
-	// #nosec G204 -- the program is the literal "git" and every argument but the
-	// range is written here. Both ends of the range are held to isObjectName
-	// above, so what reaches git is hexadecimal and cannot be read as an option
-	// or as a path. exec.Command builds an argument vector and starts no shell,
-	// so there is no second layer for anything to escape into.
 	out, err := exec.Command("git", "log", "--reverse",
 		"--format=%H"+sep+"%P"+sep+"%an <%ae>"+sep+"%s", base+".."+head).Output()
 	if err != nil {

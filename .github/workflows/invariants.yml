@@ -1,0 +1,101 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Enforces the invariants that are properties of the text rather than of the
+# behaviour (#95).
+#
+# Several rules on this board are of that kind: a thing that must not appear in a
+# Go file anywhere except in the one place that owns it. Each was stated in the
+# issue that wanted it and then left to whoever remembered it. internal/invariant
+# is where they are counted, one table, each entry carrying the issue it came
+# from, and this job is what runs them.
+#
+# The run says what it examined. It prints the rules it ran, the rules it did not
+# run and what each of those waits on, and how many Go files it read, because a
+# run that enforced three rules of five and a run that enforced five and found
+# nothing leave the same exit code. Two of the five are declared and do not run:
+# the display rule waits on the client platform (#74) and the configuration rule
+# waits on the key list (#82), and neither has a subject in this tree yet.
+#
+# The means is Go, in cmd/invariant over internal/invariant. It adds no language
+# and no runtime the tree does not already carry, it reads the syntax tree rather
+# than the text so a word in a comment is not a finding, and every rule that runs
+# is exercised by a case in the suite. A grep in shell was the obvious
+# alternative and is what the issue's own title suggests; it was not taken
+# because it cannot tell a comment from a call, and a checker that refuses
+# correct prose is one somebody turns off.
+#
+# What is outside this job. Anything that is not a Go file: a name in a workflow,
+# in a document or in a fixture is invisible to it. And internal/invariant itself
+# is exempt from the forwarding unit rule, because it holds that vocabulary as
+# data; the exemption is one directory wide, it is asserted in the suite, and it
+# is stated in the package comment where somebody meets it.
+#
+# The job carries no `name:`, so the check run takes the job id, "invariants".
+# Branch protection matches the check-run name, so a rename would silently
+# un-require the check while the protection went on reporting itself as active.
+# The name is not to be changed.
+name: Invariants
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Read-only: the job reads the tree and writes nothing back.
+permissions:
+  contents: read
+
+# A newer push on the same ref supersedes an in-flight run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The version comes from the tree rather than from this file, so this
+          # job and every other check that reads go.mod cannot drift apart.
+          go-version-file: go.mod
+          # No module cache. The job has to work from a clean checkout, and a
+          # cold cache must change how long a step takes rather than what it
+          # judges.
+          cache: false
+
+      - name: Enforce the invariants
+        run: go run -mod=readonly ./cmd/invariant .
+
+      - name: Prove the rules still refuse
+        run: |
+          set -euo pipefail
+          # The run above says the tree is clean. What it cannot say is whether
+          # the rules would have refused anything, and a checker whose rules
+          # have quietly stopped biting reports exactly the same verdict. So the
+          # suite that keeps a case per rule runs here too, in the same job,
+          # rather than only inside `unit`.
+          go test -mod=readonly -count=1 ./internal/invariant
+
+      - name: Refuse a run that judged nothing
+        run: |
+          set -euo pipefail
+          # The command exits non-zero over a tree holding no Go file, and that
+          # leg is worth having only if it fires. It is proved on every run
+          # rather than once.
+          mkdir -p "${RUNNER_TEMP}/empty"
+          if go run -mod=readonly ./cmd/invariant "${RUNNER_TEMP}/empty"; then
+            echo "::error::the check passed over a tree holding no Go file, so a run that read nothing would report itself clean"
+            exit 1
+          fi
+          echo "a run that reads no Go file is refused."

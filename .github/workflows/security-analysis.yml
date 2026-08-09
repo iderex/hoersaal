@@ -171,8 +171,11 @@ jobs:
               | [.Issues[].rule_id] | group_by(.)
               | map({rule: .[0], n: length})
               | sort_by(.rule)[]
-              | "  \(.rule)  \(.n)  " + (if ([$r[]] | index(.rule)) then "reported, retired by #159" else "ENFORCED" end)
+              | . as $c
+              | "  \($c.rule)  \($c.n)  " + (if ($r | index($c.rule)) then "reported, retired by #159" else "ENFORCED" end)
             ' all.json
+            echo "where each finding is:"
+            jq -r '.Issues[] | "  \(.rule_id) \(.file):\(.line)"' all.json | sed "s|${PWD}/||" | sort
           fi
 
       - name: Refuse any finding outside the reported classes

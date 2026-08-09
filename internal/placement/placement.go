@@ -27,6 +27,20 @@ var (
 
 	// ErrNotAState is a unit state outside the three the seam names.
 	ErrNotAState = errors.New("a unit is admitting, draining or gone")
+
+	// ErrNotACount is a number of participants that is negative.
+	ErrNotACount = errors.New("a participant count is not negative")
+
+	// ErrNotABitrate is a bitrate that is negative or is not a number.
+	ErrNotABitrate = errors.New("a bitrate is a number and is not negative")
+
+	// ErrNoCeiling is a unit ceiling below one, which is a conference that may
+	// live nowhere.
+	ErrNoCeiling = errors.New("a conference occupies at least one unit")
+
+	// ErrNotAnArrival is a participant that publishes and offers no source, or
+	// one that does not publish and offers some.
+	ErrNotAnArrival = errors.New("a publisher offers at least one source and a subscriber offers none")
 )
 
 // EligibilityCeiling is the load at which a unit takes nothing new, neither a
@@ -169,13 +183,8 @@ func (p Pool) Units() []Unit { return append([]Unit(nil), p.units...) }
 // has not been filled in yet.
 func (p Pool) Len() int { return len(p.units) }
 
-// A Reason is why a placement was refused.
-//
-// docs/decisions/placement-seam.md names three, and two of them are here. The
-// third is the conference reaching the unit ceiling in
-// docs/decisions/room-topology.md, which a conference that is on no unit cannot
-// have reached, so it belongs to participant placement on issue #58 and is added
-// there rather than declared here and never returned.
+// A Reason is why a placement was refused. docs/decisions/placement-seam.md
+// names three and all three are here.
 type Reason struct{ v string }
 
 // NoUnits is a pool with no rows at all.
@@ -184,6 +193,16 @@ func NoUnits() Reason { return Reason{"the pool holds no units at all"} }
 // NoEligibleUnit is a pool whose rows are all draining, gone, or at or above the
 // eligibility ceiling.
 func NoEligibleUnit() Reason { return Reason{"the pool holds no eligible unit"} }
+
+// ReachedUnitCeiling is a conference that occupies as many units as its ceiling
+// allows and no unit already carrying it can take more.
+//
+// It is a different answer from NoEligibleUnit and the difference is what the
+// caller does next. docs/design/scaling-loop.md says a refusal for the
+// conference ceiling does not grow the pool, because another unit would not be
+// allowed to carry that conference anyway, so a deployment that collapsed the
+// two would buy a machine for a room that cannot use it.
+func ReachedUnitCeiling() Reason { return Reason{"the conference has reached its unit ceiling"} }
 
 func (r Reason) String() string { return r.v }
 
@@ -255,22 +274,38 @@ func (Naive) PlaceConference(pool Pool, _ domain.ConferenceID) Answer {
 	if pool.Len() == 0 {
 		return refuse(NoUnits())
 	}
+	best, found := lowest(pool, anyUnit)
+	if !found {
+		return refuse(NoEligibleUnit())
+	}
+	return place(best.id)
+}
 
+// lowest is the order the naive policy applies twice: the eligible unit with the
+// lowest effective load out of those the caller is willing to consider, ties
+// broken by the smallest identifier.
+//
+// The two questions differ only in which units they will consider, so the search
+// is written once. A second copy of this loop is a second place for the tie
+// break to be forgotten, and the tie break is what makes the answer total rather
+// than merely deterministic.
+func lowest(pool Pool, consider func(Unit) bool) (Unit, bool) {
 	var best Unit
 	found := false
 	for _, u := range pool.units {
-		if !eligible(u) {
+		if !eligible(u) || !consider(u) {
 			continue
 		}
 		if !found || prefer(u, best) {
 			best, found = u, true
 		}
 	}
-	if !found {
-		return refuse(NoEligibleUnit())
-	}
-	return place(best.id)
+	return best, found
 }
+
+// anyUnit is the conference case: a conference on no unit has no preference
+// between units.
+func anyUnit(Unit) bool { return true }
 
 // eligible is the seam's own sentence: a unit is eligible when the pool says it
 // is admitting and its effective load is below the ceiling. Below and not at,
@@ -292,3 +327,222 @@ func prefer(a, b Unit) bool {
 func place(u UnitID) Answer { return Answer{placed: true, unit: u} }
 
 func refuse(r Reason) Answer { return Answer{reason: r} }
+
+// A Carrying is one row of the conference record: a unit the conference is
+// already on, how many participants of this conference that unit holds, and the
+// bitrate of this conference's sources published there.
+//
+// That last figure is B(i) in docs/decisions/room-topology.md, and the seam says
+// it is passed so that a placer can see what adding a unit to a conference would
+// cost the units already carrying it. The naive policy does not read either
+// figure, which is said here rather than left to be inferred from a policy that
+// happens not to mention them: it reads only the load, so it does not know that
+// the participant arriving will cost more than the last one, and it does not
+// account for what a publisher on a new unit costs the rest of the mesh. Both
+// are named as what is naive about it.
+type Carrying struct {
+	unit             UnitID
+	participants     int
+	publishedBitrate float64
+}
+
+// NewCarrying refuses a row no control plane could honestly produce: a row about
+// no unit, a negative number of participants, and a bitrate that is negative or
+// is not a number. The bitrate refusal is the same one NewUnit makes about a
+// load and it is made for the same reason, so that a NaN cannot reach an
+// ordering and make the answer depend on the order the rows arrived in.
+func NewCarrying(unit UnitID, participants int, publishedBitrate float64) (Carrying, error) {
+	switch {
+	case unit.v == "":
+		return Carrying{}, fmt.Errorf("carrying unit: %w", ErrEmpty)
+	case participants < 0:
+		return Carrying{}, fmt.Errorf("unit %s carrying %d participant(s): %w", unit.v, participants, ErrNotACount)
+	case math.IsNaN(publishedBitrate) || publishedBitrate < 0:
+		return Carrying{}, fmt.Errorf("unit %s publishing %v: %w", unit.v, publishedBitrate, ErrNotABitrate)
+	}
+	return Carrying{unit: unit, participants: participants, publishedBitrate: publishedBitrate}, nil
+}
+
+// Unit is which unit this row is about.
+func (c Carrying) Unit() UnitID { return c.unit }
+
+// Participants is how many participants of this conference that unit holds.
+func (c Carrying) Participants() int { return c.participants }
+
+// PublishedBitrate is B(i): the bitrate of this conference's sources published
+// on that unit.
+func (c Carrying) PublishedBitrate() float64 { return c.publishedBitrate }
+
+// A Conference is the second of the three records, in the form a participant
+// placement takes: which units are already carrying it, and how many units it
+// may occupy at all.
+//
+// It is not domain.Conference and it is not a smaller copy of one. The model
+// holds the people in a room and this holds where the room is, and the seam is
+// explicit that nothing about the people is passed, because a placer that could
+// read them would be a second place where personal data lives.
+//
+// The unit ceiling is passed rather than derived, and that is the one addition
+// this record makes to the set the seam first fixed. The bound is over f, the
+// fraction of a unit's egress the deployment spends on links, and E, the unit's
+// egress denominator; neither is in any record the placer is handed and neither
+// has a value on this board yet. So a placer that derived it would be inventing
+// the figure issue #59 exists to measure. It is read the way a unit state is
+// read, without being interpreted, so the day f is measured is a change to
+// whoever fills this record in rather than a change to the policy.
+type Conference struct {
+	id          domain.ConferenceID
+	unitCeiling int
+	carrying    []Carrying
+}
+
+// NewConference refuses a conference with no identifier, a ceiling below one,
+// and two rows for one unit.
+//
+// A ceiling below one is a conference that may live nowhere, which no arithmetic
+// over room-topology.md produces and which would make every placement a ceiling
+// refusal. Two rows for one unit is the same refusal NewPool makes and it is
+// made here for a second reason: the number of rows is U, so a duplicate would
+// spend the ceiling twice on one machine.
+//
+// A record holding more rows than its ceiling is not refused. The ceiling is
+// derived from figures that move, and a conference already on three units when
+// the bound falls to two is a real state; the placer answers it by refusing to
+// reach for a fourth, which is what the ceiling is for.
+func NewConference(id domain.ConferenceID, unitCeiling int, carrying ...Carrying) (Conference, error) {
+	if id.String() == "" {
+		return Conference{}, fmt.Errorf("conference identifier: %w", ErrEmpty)
+	}
+	if unitCeiling < 1 {
+		return Conference{}, fmt.Errorf("conference %s with a ceiling of %d: %w", id, unitCeiling, ErrNoCeiling)
+	}
+	held := make(map[UnitID]struct{}, len(carrying))
+	for _, c := range carrying {
+		if c.unit.v == "" {
+			return Conference{}, fmt.Errorf("carrying row: %w", ErrEmpty)
+		}
+		if _, dup := held[c.unit]; dup {
+			return Conference{}, fmt.Errorf("unit %s: %w", c.unit.v, ErrDuplicate)
+		}
+		held[c.unit] = struct{}{}
+	}
+	return Conference{id: id, unitCeiling: unitCeiling, carrying: append([]Carrying(nil), carrying...)}, nil
+}
+
+// ID is which conference this is.
+func (c Conference) ID() domain.ConferenceID { return c.id }
+
+// UnitCeiling is how many units this conference may occupy.
+func (c Conference) UnitCeiling() int { return c.unitCeiling }
+
+// Carrying is the units already carrying it, in the order the caller gave them.
+// It is a copy, for the reason Pool.Units is one.
+func (c Conference) Carrying() []Carrying { return append([]Carrying(nil), c.carrying...) }
+
+// Units is U in docs/decisions/room-topology.md: how many units this conference
+// is on. It is the number of rows the caller put in the record, so a unit that
+// has died leaves this record when whoever maintains it says so and not when the
+// pool stops listing the unit. The placer does not reconcile the two, because a
+// placer that decided a conference was no longer somewhere would be deciding
+// liveness, which is the pool's answer on issue #56.
+func (c Conference) Units() int { return len(c.carrying) }
+
+// An Arrival is the third record: the participant who is joining, as much of
+// them as is known at that moment.
+//
+// The seam passes whether they will publish and, if so, the sources they offer
+// with their layer arrangement, and says that is all that is passed. A
+// domain.Source names its own publisher, so this record carries the arriving
+// participant's identifier as a property of that type rather than because the
+// seam asks for it. Nothing here reads it, and the alternative was a second
+// vocabulary for a source beside the model's.
+//
+// The participant's network location is deliberately absent, which is the seam's
+// own sentence: it would matter for a pool spread across sites, no decision on
+// this board has described one, and a field that exists before a policy reads it
+// is a field the first placer will use for something else.
+type Arrival struct {
+	publishes bool
+	sources   []domain.Source
+}
+
+// NewArrival refuses the two records that contradict themselves: a participant
+// that publishes and offers no source, and one that does not publish and offers
+// some. Either would leave a later policy weighing a cost against a flag that
+// disagrees with it.
+func NewArrival(publishes bool, sources ...domain.Source) (Arrival, error) {
+	if publishes != (len(sources) > 0) {
+		return Arrival{}, fmt.Errorf("publishes=%v with %d source(s): %w", publishes, len(sources), ErrNotAnArrival)
+	}
+	return Arrival{publishes: publishes, sources: append([]domain.Source(nil), sources...)}, nil
+}
+
+// Publishes is whether this participant will send anything.
+func (a Arrival) Publishes() bool { return a.publishes }
+
+// Sources is what they offer, and it is a copy.
+func (a Arrival) Sources() []domain.Source { return append([]domain.Source(nil), a.sources...) }
+
+// A ParticipantPlacer answers where a participant joining a conference that is
+// already running goes. It is the second form of the one question in
+// docs/decisions/placement-seam.md.
+//
+// It is a separate call from ConferencePlacer because the inputs differ and
+// because this is the only one of the two that has a conference to keep
+// together. It is a separate interface for the reason the first one is one: the
+// policy is the component most likely to be replaced, and a caller that holds
+// the seam rather than the type pays nothing on the day it is.
+type ParticipantPlacer interface {
+	PlaceParticipant(pool Pool, conference Conference, arriving Arrival) Answer
+}
+
+// PlaceParticipant prefers the units already carrying the conference, and only
+// reaches for another when none of them can take the arrival and the conference
+// is below its unit ceiling.
+//
+// That preference is this policy's answer to the trade the issue names: an extra
+// relay hop for this person against a fuller unit for the room. It prefers the
+// fuller unit, and the reason is in docs/decisions/room-topology.md rather than
+// in a judgement made here. A second unit is not one participant's cost. It is a
+// link to every other unit carrying that conference, the media of every forwarded
+// speaker crossing it, and one added hop of delay for every subscriber on it and
+// not only for the arrival, and that cost is committed for as long as the room
+// lasts because nothing moves a conference that is already placed. The hop is
+// paid by one person for one session; the mesh is paid by the room. So the
+// second unit is what the placer reaches for last, which is the same sentence as
+// a conference occupying a second unit at the moment a participant cannot be
+// placed on the unit already carrying it, and for no other reason.
+//
+// The arriving participant is not read, and the parameter name says so. This
+// policy reads only the load, so what the arrival offers cannot change its
+// answer; a policy that weighed a publisher differently from a subscriber would
+// be the one docs/decisions/placement-seam.md describes as what a real placer
+// has to do, and it would read the record this one is handed and carries.
+func (Naive) PlaceParticipant(pool Pool, conference Conference, _ Arrival) Answer {
+	if pool.Len() == 0 {
+		return refuse(NoUnits())
+	}
+
+	on := make(map[UnitID]struct{}, len(conference.carrying))
+	for _, c := range conference.carrying {
+		on[c.unit] = struct{}{}
+	}
+	carrying := func(u Unit) bool { _, held := on[u.id]; return held }
+
+	if best, found := lowest(pool, carrying); found {
+		return place(best.id)
+	}
+
+	// The ceiling is asked before the rest of the pool and not after, because the
+	// two refusals lead the caller to different places: a conference at its
+	// ceiling is not a reason to grow the pool, and a conference below it with
+	// nothing eligible anywhere is.
+	if conference.Units() >= conference.unitCeiling {
+		return refuse(ReachedUnitCeiling())
+	}
+
+	if best, found := lowest(pool, func(u Unit) bool { return !carrying(u) }); found {
+		return place(best.id)
+	}
+	return refuse(NoEligibleUnit())
+}

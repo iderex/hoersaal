@@ -55,6 +55,20 @@ Nothing about the people in the conference is passed, because the placer has no
 use for them and a placer that could read them would be a second place where
 personal data lives.
 
+And its unit ceiling, which is the bound on U in
+[room-topology.md](room-topology.md). It is passed rather than derived, and this
+sentence is the change issue #58 made to this record when it built the second
+question. The bound is over f, the fraction of a unit's egress the deployment
+spends on links, and E, the unit's egress denominator. Neither is in any record
+the placer is handed, neither has a value on this board, and that document says
+so in its own words: until the cascade run on issue #59 exists there is no honest
+value and writing one down would be a number nobody could defend. So a placer
+deriving the ceiling would be inventing the figure #59 exists to measure. It is
+read the way a unit state is read, without being interpreted, which makes the day
+f is measured a change to whoever fills this record in rather than a change to
+any policy. What it costs is that nothing can tell a derived ceiling from a
+guessed one, and that cost is real for as long as #59 is open.
+
 **The arriving participant.** Whether it will publish, and if so the sources it
 offers with their layer arrangement. That is all that is known at that moment and
 it is all that is passed.

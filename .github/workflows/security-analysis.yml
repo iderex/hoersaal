@@ -8,8 +8,9 @@
 # used against its own contract. This job runs gosec, which models a defect as
 # a pattern with a security consequence and tags each one with a CWE. The two
 # sets barely meet. On the tree as it stands staticcheck reports nothing and
-# gosec reports twenty-two things, in five classes, none of which staticcheck
-# has a check for.
+# gosec reports several classes of thing, none of which staticcheck has a check
+# for. The count is printed by the run rather than written here, because a
+# number in this file drifts against the tree it describes.
 #
 # It is written by different people against a different model, which is the
 # whole reason for a second lens rather than a wider setting on the first.
@@ -22,11 +23,11 @@
 # ## What is enforced and what is not
 #
 # Five rule classes are reported and not enforced, and the tree trips every one
-# of them today. Gating on them would mean twenty-two suppressions across ten
-# files in one change, most of them in packages whose issues are still open, so
-# they are declared here where a reader meets them rather than in a file nobody
-# opens. #159 is where they are retired, one class at a time, by the issue that
-# owns the code each class lands in.
+# of them today. Gating on them would mean a suppression at every site in one
+# change, spread across packages whose own issues are still open, so they are
+# declared here where a reader meets them rather than in a file nobody opens.
+# #159 is where they are retired, one class at a time, by the issue that owns
+# the code each class lands in.
 #
 # The classes and why each one fires here:
 #
@@ -144,7 +145,7 @@ jobs:
           # -no-fail so this leg reports and the next one gates. The whole set
           # runs here, including the classes the gate does not enforce, so a
           # green job cannot be read as gosec having found nothing.
-          gosec -quiet -no-fail -tests -fmt=json -out=all.json ./... || true
+          gosec -no-fail -tests -fmt=json -out=all.json ./... || true
           if [ ! -s all.json ]; then
             echo "::error::the report leg produced no document, so it judged nothing; failing closed rather than reporting a clean tree"
             exit 1
@@ -183,7 +184,7 @@ jobs:
           set -euo pipefail
           export PATH="$(go env GOPATH)/bin:${PATH}"
           echo "reported rather than enforced: ${GOSEC_REPORTED_ONLY}"
-          gosec -quiet -tests -exclude="${GOSEC_REPORTED_ONLY}" -fmt=json -out=gated.json -no-fail ./...
+          gosec -tests -exclude="${GOSEC_REPORTED_ONLY}" -fmt=json -out=gated.json -no-fail ./...
           if [ ! -s gated.json ]; then
             echo "::error::the gating leg produced no document, so it judged nothing; failing closed rather than reporting a clean tree"
             exit 1

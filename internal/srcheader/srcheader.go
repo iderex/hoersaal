@@ -265,6 +265,9 @@ func CheckTree(root string) (findings []Finding, read []string, err error) {
 		if !Covers(slashed) {
 			return nil
 		}
+		// #nosec G304 -- p is a path this walk produced from root, so what is
+		// opened is the checkout the command was pointed at. Nothing reaches
+		// this from a request or from a caller choosing a file.
 		src, err := os.ReadFile(p)
 		if err != nil {
 			return err

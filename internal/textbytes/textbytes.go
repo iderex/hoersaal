@@ -149,6 +149,8 @@ func CheckFile(path string, src []byte, binary []string) []Finding {
 // the rule needs to be and it is the safe direction: a file in the checkout is
 // a file a test can open.
 func CheckTree(root string) ([]Finding, error) {
+	// #nosec G304 -- the name under root is a constant in this package, so the
+	// only variable part is the root the command was pointed at.
 	attrs, err := os.ReadFile(filepath.Join(root, attributesFile))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -185,6 +187,9 @@ func CheckTree(root string) ([]Finding, error) {
 			})
 			return nil
 		}
+		// #nosec G304 -- p is a path this walk produced from root, so what is
+		// opened is the checkout the command was pointed at. Nothing reaches
+		// this from a request or from a caller choosing a file.
 		src, err := os.ReadFile(p)
 		if err != nil {
 			return err

@@ -385,6 +385,9 @@ func randomJSON(r source, depth int) string {
 	case 1:
 		return "true"
 	case 2:
+		// #nosec G115 -- the remainder bounds the value at 999 before the
+		// conversion, so the number this generator writes is between -500 and
+		// 499 on any width an int has.
 		return fmt.Sprintf("%d", int(r.Uint64()%1000)-500)
 	case 3:
 		b, _ := json.Marshal(randomString(r, r.IntN(12)))

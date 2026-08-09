@@ -281,6 +281,9 @@ func encode(c Claims) []byte {
 	out := make([]byte, 0, 64+len(c.Conference)+len(c.Subject)+len(c.Role))
 	out = append(out, Version)
 	for _, s := range []string{c.Conference, c.Subject, c.Role} {
+		// #nosec G115 -- Issue refuses any of these three fields above
+		// MaxFieldBytes, which is 128, before encode is reached, so the length
+		// that reaches this conversion is bounded far below what a uint16 holds.
 		out = binary.BigEndian.AppendUint16(out, uint16(len(s)))
 		out = append(out, s...)
 	}

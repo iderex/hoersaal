@@ -1,0 +1,194 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# A second analyser over the same tree, for issue #91.
+#
+# `analysis.yml` runs staticcheck, which models a defect as code that is wrong
+# about itself: an impossible condition, a value that cannot be used, an API
+# used against its own contract. This job runs gosec, which models a defect as
+# a pattern with a security consequence and tags each one with a CWE. The two
+# sets barely meet. On the tree as it stands staticcheck reports nothing and
+# gosec reports twenty-two things, in five classes, none of which staticcheck
+# has a check for.
+#
+# It is written by different people against a different model, which is the
+# whole reason for a second lens rather than a wider setting on the first.
+#
+# It analyses Go and is written in Go, so it adds no language and no runtime
+# the tree does not already carry, and it is installed at a pinned version as a
+# module rather than through an action, so what runs is decided in this file
+# and by the module checksum database.
+#
+# ## What is enforced and what is not
+#
+# Five rule classes are reported and not enforced, and the tree trips every one
+# of them today. Gating on them would mean twenty-two suppressions across ten
+# files in one change, most of them in packages whose issues are still open, so
+# they are declared here where a reader meets them rather than in a file nobody
+# opens. #159 is where they are retired, one class at a time, by the issue that
+# owns the code each class lands in.
+#
+# The classes and why each one fires here:
+#
+#   G104  an unhandled error, in the three `Format` methods that write a
+#         placeholder into a `fmt.State`, whose error is not actionable
+#   G115  an integer conversion that could overflow, in the credential encoder,
+#         where every field is bounded at `MaxFieldBytes` before it is reached
+#   G204  a subprocess launched with a variable, in the pull request hygiene
+#         command, which runs git over a commit range
+#   G304  a file opened by a variable path, in the eight checkers that walk this
+#         repository at build time
+#   G404  a source of randomness that is not cryptographic, in the one package
+#         that owns non-cryptographic randomness by decision on #27
+#
+# Each of those is an answer rather than a dismissal, and each is written down
+# on #159 with the command that shows it.
+#
+# Everything else is enforced and a finding fails the job. That set includes the
+# classes this service will actually meet: hardcoded credentials, a weak or
+# broken cipher or hash, a disabled certificate check, a server with no
+# timeouts, a listener bound to every interface, and unsafe pointer use.
+#
+# The report leg runs the whole set on every run and prints the count per class,
+# so a green job cannot be read as gosec having found nothing. A run that
+# covered less than the whole set says so.
+#
+# ## Suppression
+#
+# Per finding and at the site, with the rule id and a reason, which is gosec's
+# own `#nosec G304 -- reason` form. A tracked configuration file is refused for
+# the reason `analysis.yml` gives: it turns a rule off for the whole tree from a
+# place nobody reading the code will see. The run prints how many suppressions
+# it honoured, so one that arrives is visible in the log rather than only in the
+# diff that added it.
+#
+# This job carries no `name:`, so the check run takes the job id,
+# "security-analysis". The id names the lens rather than the tool, for the
+# reason `analysis.yml` argues: swapping the analyser must not un-require the
+# analysis. Branch protection matches the check-run name, so a rename would
+# silently un-require the check while the protection went on reporting itself as
+# active. The name is recorded in #158.
+name: Security Analysis
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Read-only: the job reads the tree and writes nothing back.
+permissions:
+  contents: read
+
+# A newer push on the same ref supersedes an in-flight run; the analysis is
+# deterministic and rerunning it is cheap.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Pinned. An analyser that resolves to whatever is newest changes what the
+      # gate refuses without anybody editing the gate.
+      GOSEC_VERSION: "v2.22.9"
+      # The classes reported rather than enforced, in one place so the two legs
+      # below cannot disagree about which they are. #159 retires them.
+      GOSEC_REPORTED_ONLY: "G104,G115,G204,G304,G404"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The version comes from the tree rather than from this file, so this
+          # check and every other one that reads go.mod cannot drift apart.
+          go-version-file: go.mod
+          # No module cache. The job has to work from a clean checkout, and a
+          # cold cache must change what a step does rather than whether it runs.
+          cache: false
+
+      - name: Refuse a tracked suppression file
+        run: |
+          set -uo pipefail
+          found=$(git ls-files '.gosec.json' '*/.gosec.json' 'gosec.json' '*/gosec.json' '.gosec.yaml' '*/.gosec.yaml' || true)
+          if [ -n "$found" ]; then
+            echo "$found"
+            echo "::error::a gosec configuration file is tracked; suppression belongs at the finding with the rule id and a reason beside it, not in a file that turns a rule off for the whole tree"
+            exit 1
+          fi
+          echo "no tracked gosec configuration; the enforced set is the one this workflow names."
+
+      - name: Install the analyser
+        run: |
+          set -euo pipefail
+          go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
+
+      - name: Report the whole rule set
+        run: |
+          set -euo pipefail
+          export PATH="$(go env GOPATH)/bin:${PATH}"
+          # What ran, printed rather than assumed. `gosec -version` reports
+          # "dev" when it is installed from source, so the version is read out
+          # of the binary's own module information instead, which is the version
+          # this file pinned.
+          go version -m "$(command -v gosec)" | awk '$1 == "mod" || $1 == "path" { print "  " $0 }'
+          echo "packages:"
+          go list ./... | sed 's/^/  /'
+          # -no-fail so this leg reports and the next one gates. The whole set
+          # runs here, including the classes the gate does not enforce, so a
+          # green job cannot be read as gosec having found nothing.
+          gosec -quiet -no-fail -tests -fmt=json -out=all.json ./... || true
+          if [ ! -s all.json ]; then
+            echo "::error::the report leg produced no document, so it judged nothing; failing closed rather than reporting a clean tree"
+            exit 1
+          fi
+          # A package that did not compile is reported here rather than as a
+          # finding, so an analysis that read less than the tree would otherwise
+          # leave the same trace as one that read all of it and was happy.
+          broken=$(jq '[."Golang errors" // {} | to_entries[]] | length' all.json)
+          if [ "$broken" -ne 0 ]; then
+            jq -r '."Golang errors" | to_entries[] | "  \(.key)"' all.json
+            echo "::error::the analyser could not read ${broken} file(s), so it judged less than this tree; failing closed rather than reporting what it managed"
+            exit 1
+          fi
+          total=$(jq '.Issues | length' all.json)
+          nosec=$(jq -r '.Stats.nosec // 0' all.json)
+          files=$(jq -r '.Stats.files // 0' all.json)
+          echo "files analysed: ${files}"
+          echo "suppressions honoured: ${nosec}"
+          echo "findings over the whole rule set: ${total}"
+          if [ "$total" -gt 0 ]; then
+            echo "by class, with what the gate does with each:"
+            jq -r --arg reported "${GOSEC_REPORTED_ONLY}" '
+              ($reported | split(",")) as $r
+              | [.Issues[].rule_id] | group_by(.)
+              | map({rule: .[0], n: length})
+              | sort_by(.rule)[]
+              | "  \(.rule)  \(.n)  " + (if ([$r[]] | index(.rule)) then "reported, retired by #159" else "ENFORCED" end)
+            ' all.json
+          fi
+
+      - name: Refuse any finding outside the reported classes
+        run: |
+          set -euo pipefail
+          export PATH="$(go env GOPATH)/bin:${PATH}"
+          echo "reported rather than enforced: ${GOSEC_REPORTED_ONLY}"
+          gosec -quiet -tests -exclude="${GOSEC_REPORTED_ONLY}" -fmt=json -out=gated.json -no-fail ./...
+          if [ ! -s gated.json ]; then
+            echo "::error::the gating leg produced no document, so it judged nothing; failing closed rather than reporting a clean tree"
+            exit 1
+          fi
+          n=$(jq '.Issues | length' gated.json)
+          if [ "$n" -ne 0 ]; then
+            jq -r '.Issues[] | "\(.rule_id) \(.severity)/\(.confidence) \(.file):\(.line)\n  \(.details)"' gated.json
+            echo "::error::${n} finding(s) from the enforced rule set. A finding here is a failure and not advice; suppression is at the site with the rule id and a reason."
+            exit 1
+          fi
+          echo "no findings from the enforced rule set."

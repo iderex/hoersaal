@@ -1,0 +1,111 @@
+# SPDX-FileCopyrightText: 2026 iderex
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Holds a bar over the packages where a gap in the tests costs the most (#92).
+#
+# The reference gate this board is measured against puts a high number on the
+# modules that decide security outcomes and no number on the whole codebase, and
+# docs/reference-gate-parity.md is where that comparison lives. A figure over
+# everything is easy to reach and says nothing, because the code that is trivial
+# to cover is also the code where a gap costs least.
+#
+# Which packages are under the bar, what the bar is and where the number came
+# from are in internal/coverage rather than in this file. A list here would be a
+# list nobody exercises: the suite in that package puts every surface one
+# statement below the bar and asserts the refusal, and it asserts the case a
+# coverage check gets wrong quietly, which is a surface the profile holds no row
+# for at all.
+#
+# The run says what it examined. It prints every surface with its figure and
+# every other package with its figure and no verdict attached, so a run that
+# judged three surfaces of four and a run that judged four and found nothing
+# cannot be told apart by their exit code alone.
+#
+# The means is Go, in cmd/coverage over internal/coverage, reading the profile
+# the toolchain already writes. It adds no language, no runtime and no
+# dependency the tree does not carry. The obvious alternative is a shell
+# pipeline over `go tool cover`, and it was not taken for the reason
+# analysis.yml gives about logic in workflow files: nothing exercises it, the
+# arithmetic that decides a merge would live where no suite reaches it, and this
+# check's whole content is arithmetic.
+#
+# What is outside this job. It judges statements and nothing else. A package at
+# a hundred per cent whose tests assert nothing passes here, and the thing that
+# catches that is issue #93, which reports rather than gates.
+#
+# The job carries no `name:`, so the check run takes the job id, "coverage".
+# Branch protection matches the check-run name, so a rename would silently
+# un-require the check while the protection went on reporting itself as active.
+# The name is not to be changed.
+name: Coverage
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Read-only: the job reads the tree and writes nothing back.
+permissions:
+  contents: read
+
+# A newer push on the same ref supersedes an in-flight run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The version comes from the tree rather than from this file, so this
+          # job and every other check that reads go.mod cannot drift apart.
+          go-version-file: go.mod
+          # No module cache. The job has to work from a clean checkout, and a
+          # cold cache must change how long a step takes rather than what it
+          # judges.
+          cache: false
+
+      - name: Measure
+        run: |
+          set -euo pipefail
+          # -count=1 so nothing is answered out of the test cache, which is the
+          # same reason CONTRIBUTING.md gives for the unit job.
+          go test -mod=readonly -count=1 -coverprofile=coverage.out ./...
+
+      - name: Hold the surfaces to the bar
+        run: go run -mod=readonly ./cmd/coverage coverage.out
+
+      - name: Prove the bar still refuses
+        run: |
+          set -euo pipefail
+          # The run above says every surface clears the bar. What it cannot say
+          # is whether the bar would have refused anything, and a check whose
+          # arithmetic has quietly stopped biting reports the same verdict. So
+          # the suite that puts each surface one statement under it runs here
+          # too, in the same job, rather than only inside `unit`.
+          go test -mod=readonly -count=1 ./internal/coverage
+
+      - name: Refuse a run that measured nothing
+        run: |
+          set -euo pipefail
+          # A profile with a mode line and no row would judge every surface
+          # against an empty set. The command refuses it, and that leg is worth
+          # having only if it fires, so it is proved on every run rather than
+          # once.
+          printf 'mode: set\n' > "${RUNNER_TEMP}/empty.out"
+          if go run -mod=readonly ./cmd/coverage "${RUNNER_TEMP}/empty.out"; then
+            echo "::error::the check passed over a profile holding no statement, so a run that measured nothing would report itself clean"
+            exit 1
+          fi
+          echo "a profile that measured nothing is refused."

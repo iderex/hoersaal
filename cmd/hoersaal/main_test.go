@@ -23,6 +23,36 @@ func TestStartingWithNoConfigurationFileSucceeds(t *testing.T) {
 	}
 }
 
+// The self-check runs at startup and the operator reads its report, which is
+// what issue #84 asks for. What matters here is that the words a step that
+// could not be run reports with reach the operator rather than being folded
+// into a verdict on the way.
+func TestTheStartupSelfCheckIsRunAndItsWordsReachTheOperator(t *testing.T) {
+	var out, errs strings.Builder
+	if code := run(nil, &out, &errs); code != 0 {
+		t.Fatalf("starting gave %d and wrote %q", code, errs.String())
+	}
+	for _, want := range []string{"self-check", "NOT VERIFIED", "the store", "ready=false"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("the run does not carry %q: %q", want, out.String())
+		}
+	}
+}
+
+// A report with steps that could not be run does not stop the startup, and a
+// configuration that could not be read does. They are different statements and
+// the command treats them differently, which is the sentence in its own comment
+// asserted rather than left as prose.
+func TestTheSelfCheckReportsAndDoesNotStopTheStartup(t *testing.T) {
+	var out, errs strings.Builder
+	if code := run(nil, &out, &errs); code != 0 {
+		t.Fatalf("a report with unverified steps stopped the startup: %d, %q", code, errs.String())
+	}
+	if !strings.Contains(out.String(), "NOT VERIFIED") {
+		t.Fatal("the run that was allowed to continue reported nothing unverified, so this asserts nothing")
+	}
+}
+
 // The same, from a file that exists and is empty. The two are one answer and
 // the test says so, because a loader that accepted the absent file and refused
 // the empty one would meet the condition in form only.

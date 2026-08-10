@@ -152,7 +152,9 @@ and is argued in [decisions/federation.md](decisions/federation.md);
 what state each is in, which is issue #56; `internal/config` is the one place
 that reads a configuration, holding the keys
 [decisions/what-an-operator-may-set.md](decisions/what-an-operator-may-set.md)
-fixes and refusing everything else, which is issue #82.
+fixes and refusing everything else, which is issue #82; `internal/selfcheck`
+runs the things an operator gets wrong before their first lecture and reports a
+step it could not run as not verified rather than as passed, which is issue #84.
 
 The configuration package is one level down and flat like the rest, and the
 reason it is not inside `cmd/hoersaal` is the sentence at the top of this

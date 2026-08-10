@@ -22,6 +22,13 @@
 // nothing after it: this process listens on no socket, opens no store and
 // reaches no unit. It is written in this order now so that the thing that
 // listens arrives underneath a refusal that already happened.
+//
+// The self-check on issue #84 runs after that and does not stop the startup.
+// The two are different statements: a configuration this software cannot read
+// is a file to fix before anything else happens, and a self-check step that
+// could not be run is this build not having the thing yet. Every step but one
+// is in the second state today, so a startup that refused on the report would
+// be a service nobody could start, and the report says which is which.
 package main
 
 import (
@@ -32,6 +39,7 @@ import (
 	"strings"
 
 	"github.com/iderex/hoersaal/internal/config"
+	"github.com/iderex/hoersaal/internal/selfcheck"
 )
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
@@ -62,6 +70,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout,
 		"hoersaal: the configuration is valid; the pool floor is %d and the ceiling is %d, and nothing is implemented yet\n",
 		settings.PoolMinimum, settings.PoolMaximum)
+
+	fmt.Fprintf(stdout, "hoersaal: the startup self-check, before the first lecture rather than during it\n")
+	if err := selfcheck.Run(settings).Write(stdout); err != nil {
+		fmt.Fprintf(stderr, "hoersaal: writing the self-check: %v\n", err)
+		return 2
+	}
 	return 0
 }
 

@@ -97,11 +97,12 @@ is where the pool is built, names five: requested, starting, serving, draining
 and gone. The disagreement is over one name, since #56's serving and the seam's
 admitting are the same state.
 
-This note follows #56 for the shape, which is five states and the same
-transitions, and follows the seam for the name of the one they differ on. The
-seam is a landed decision and #56 is an open issue, so where the two collide the
-landed one wins until #56 lands and says otherwise. Whichever name survives, one
-of the two documents has to change, and that is #56's to settle.
+This note followed #56 for the shape, which is five states and the same
+transitions, and followed the seam for the name of the one they differ on, on
+the ground that the seam is landed and #56 was open. #56 has landed, in
+`internal/pool`, and it settles the name as admitting. So neither document
+changes: the word two of them already carried is the word that survived, and
+what was a standing disagreement is now a note about how it was resolved.
 
 The reason there are five rather than the four the wording of issue #53 uses is
 the one #56 already gives: the interval in which a machine exists and does not
@@ -123,17 +124,35 @@ unit's own registration moves it here, and this is the only state in which the
 placer may choose it.
 
 Draining. The unit takes no new work and keeps what it has until those
-conferences end on their own. The pool moves a unit here, either because the
-scale-in condition held or because an operator asked. Nothing else may, and in
-particular the placer never does: the placer reads the state and does not
-interpret it, and a draining unit is simply not eligible.
+conferences end on their own. The pool moves a unit here, for three reasons: the
+scale-in condition held, an operator asked, or the unit stopped being reachable
+by participants. Nothing else may, and in particular the placer never does: the
+placer reads the state and does not interpret it, and a draining unit is simply
+not eligible.
 
-Gone. The unit is not there. The pool moves a unit here when it stops answering
-or when a drain finished and the provisioner released it. A unit in this state
-never returns; a machine that comes back registers as a new unit, because the
-port's Lost answer is what a restarted unit gives and a control plane that
-treated it as the same unit would keep believing in conferences that are not
-there.
+The third reason is #56's addition to this paragraph, and the argument for it is
+that the other answer costs a lecture. A unit participants cannot reach still
+answers the port and still holds rooms that are running, so retiring it would
+end them on a machine that is running, while draining stops it being chosen
+without doing that. It is not undone by reachability coming back: a unit on its
+way out stays on its way out, and a machine that recovers registers as a new
+one.
+
+Gone. The unit is not there. The pool moves a unit here when it stops answering,
+when its load report is older than the bound the pool applies, or when a drain
+finished and the provisioner released it. A unit in this state never returns; a
+machine that comes back registers as a new unit, because the port's Lost answer
+is what a restarted unit gives and a control plane that treated it as the same
+unit would keep believing in conferences that are not there.
+
+The middle reason is the reading of "stops answering" that #56 needed and this
+paragraph did not fix. A report is the answer, and
+[capacity-signal.md](../decisions/capacity-signal.md) leaves the pool to decide
+when one is too old, so a unit that has stopped saying what it holds has stopped
+answering whether or not a call to it would return. The bound itself is not
+written here or in the code: how often a unit reports is issue #55 and no
+decision fixes it, so the pool takes the bound from its caller rather than
+inventing the value that issue exists to produce.
 
 ## What is authoritative and what is a view
 

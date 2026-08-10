@@ -147,7 +147,17 @@ surface a stranger enters through; `internal/secret` holds the type a value
 worth stealing is kept in, whose formatting produces a placeholder under every
 verb, which is issue #86; `internal/boundary` is the one place a connection out
 of this process is made and refuses one made anywhere else, which is issue #104
-and is argued in [decisions/federation.md](decisions/federation.md).
+and is argued in [decisions/federation.md](decisions/federation.md);
+`internal/pool` is the authoritative record of which forwarding units exist and
+what state each is in, which is issue #56.
+
+The pool is one level down and flat like the rest, and it is worth saying why it
+is not a third grouped directory beside the two boundaries. It reads the port,
+so it sits above the media plane on the control plane's side, and it fills in
+the record `internal/placement` declares. Neither of those is a boundary the
+grouping above exists for: the first is an ordinary dependency in the direction
+that boundary already allows, and the second runs the other way, since the
+placer imports nothing from the pool and the pool builds the placer's input.
 
 Flat rather than grouped, because a grouping is a claim about which packages
 belong together and every such claim so far has been wrong within a milestone.

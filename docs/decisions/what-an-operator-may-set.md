@@ -77,6 +77,40 @@ than as a list of hostnames.
 That is the list. It fits on one screen, which is what issue #12 asks of it, and
 the reason it fits is that everything below is derived.
 
+## The same list, as the keys an operator writes
+
+The prose above is the argument and this block is the same list in the form the
+loader is held to. It is here rather than in the code because the list is this
+document's, and a list that lived only in a table in Go would be a list the code
+could extend by itself:
+
+    listen.address
+    listen.certificate
+    listen.port
+    pool.maximum
+    pool.minimum
+    provisioner.driver
+    provisioner.machines
+    store.path
+    unit.egress-ceiling
+
+Nine keys under the four groups above. `listen.` is the first group,
+`provisioner.` is the fourth, `store.` is the second, and the third is split
+across `unit.` and `pool.` because one of its three numbers is about a unit and
+two are about the pool.
+
+`internal/config` accepts exactly these and refuses anything else by name. Its
+suite reads this block rather than holding a second copy of it, so a key added
+to that package and not to this document reds the run, and adding one here is
+the change the rule at the end of this document is about.
+
+One thing the block does not say, and it is the sentence issue #82 asks for
+rather than an omission here. `listen.certificate` has no default that works.
+There is nothing on a machine nobody has prepared for it to point at, and the
+two familiar ways out are both positions rather than code. The loader holds it
+as absent, an empty configuration file starts, and nothing in this tree pretends
+that deployment can serve HTTPS. That question is open on issue #82.
+
 ## Where each scaling quantity comes from instead
 
 Every quantity in this section is one somebody will eventually ask to configure.

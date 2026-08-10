@@ -149,7 +149,17 @@ verb, which is issue #86; `internal/boundary` is the one place a connection out
 of this process is made and refuses one made anywhere else, which is issue #104
 and is argued in [decisions/federation.md](decisions/federation.md);
 `internal/pool` is the authoritative record of which forwarding units exist and
-what state each is in, which is issue #56.
+what state each is in, which is issue #56; `internal/config` is the one place
+that reads a configuration, holding the keys
+[decisions/what-an-operator-may-set.md](decisions/what-an-operator-may-set.md)
+fixes and refusing everything else, which is issue #82.
+
+The configuration package is one level down and flat like the rest, and the
+reason it is not inside `cmd/hoersaal` is the sentence at the top of this
+document about what a command holds. Opening the file is wiring and belongs
+there. What a key means, what its default is and what makes a value invalid is a
+decision with a document behind it, and a decision that lived in a command would
+be one the suite could only reach by starting a process.
 
 The pool is one level down and flat like the rest, and it is worth saying why it
 is not a third grouped directory beside the two boundaries. It reads the port,

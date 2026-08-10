@@ -77,6 +77,40 @@ than as a list of hostnames.
 That is the list. It fits on one screen, which is what issue #12 asks of it, and
 the reason it fits is that everything below is derived.
 
+## The same list, as the keys an operator writes
+
+The prose above is the argument and this block is the same list in the form the
+loader is held to. It is here rather than in the code because the list is this
+document's, and a list that lived only in a table in Go would be a list the code
+could extend by itself:
+
+    listen.address
+    listen.certificate
+    listen.port
+    pool.maximum
+    pool.minimum
+    provisioner.driver
+    provisioner.machines
+    store.path
+    unit.egress-ceiling
+
+Nine keys under the four groups above. `listen.` is the first group,
+`provisioner.` is the fourth, `store.` is the second, and the third is split
+across `unit.` and `pool.` because one of its three numbers is about a unit and
+two are about the pool.
+
+`internal/config` accepts exactly these and refuses anything else by name. Its
+suite reads this block rather than holding a second copy of it, so a key added
+to that package and not to this document reds the run, and adding one here is
+the change the rule at the end of this document is about.
+
+One thing the block does not say, and it is the sentence issue #82 asks for
+rather than an omission here. `listen.certificate` has no default that works.
+There is nothing on a machine nobody has prepared for it to point at, and the
+two familiar ways out are both positions rather than code. The loader holds it
+as absent, an empty configuration file starts, and nothing in this tree pretends
+that deployment can serve HTTPS. That question is open on issue #82.
+
 ## Where each scaling quantity comes from instead
 
 Every quantity in this section is one somebody will eventually ask to configure.
@@ -167,22 +201,40 @@ the reason the list can be short now without being expensive to extend.
 
 ## What refuses a violation of this today
 
-Nothing, and the gap has an address. `PROSE, NOT ENFORCEMENT`, issue #82.
+The list does, in two places, and the halves are worth telling apart.
 
-No part of this tree reads configuration, so there is no key for a check to
-compare against a list. The rule is declared and is deliberately not run, which
-the invariants table prints rather than leaving to be inferred:
+`internal/config` refuses a key this document does not name. Its suite reads the
+block above rather than holding a second copy, so a key added to that package
+and not to this document reds the run and so does the reverse. That is the arm
+that holds the code to the document.
 
-    go run ./cmd/invariant | grep -A 2 'rules not run'
-    rules not run: 2
+`internal/invariant` refuses a key-shaped string outside `internal/config`
+anywhere in the tree, which is the arm that catches the same typo somewhere the
+loader never sees it. The rule was declared and not run until this landed:
+
+    go run ./cmd/invariant | sed -n '/rules run/,/Go files read/p'
+    rules run: 4
+      no-machine-clock-or-random-source (#27), over every Go file outside internal/clock/clock.go and internal/random/random.go
+      no-forwarding-unit-name-outside-the-adapter (#43), over every Go file outside internal/mediaunit and this package
+      no-personal-identifier-in-a-log-call (#85), over every call into log or log/slog, and every call on a value named logger, in any Go file
+      no-configuration-key-outside-the-fixed-list (#82), over every string in a Go file outside internal/config that begins with one of the prefixes the four groups of docs/decisions/what-an-operator-may-set.md use
+    rules not run: 1
       no-display-dependency-in-the-client-decision-layer (#75): the client platform is undecided on #74, so the imports that carry a display have no names yet and a list written now would be a list against a guess
-      no-configuration-key-outside-the-fixed-list (#82): #82 fixes the list of keys and nothing in this tree reads configuration yet, so there is neither a list to compare against nor a key to compare
+    Go files read: 62
 
-So the list above is held by a reader until issue #82 lands the configuration that
-refuses a key outside it. That issue is where this document stops being prose, and
-the fourth condition of issue #12 is exactly that landing.
+What neither arm reaches, said here rather than left to be inferred from a green
+run. The second rule reads the shape of a key, so a key invented under a sixth
+prefix, or built by joining two strings, is outside it; the reasons are at the
+rule. And nothing anywhere refuses a key that is added to this document and to
+that package in one change, which is the case the rule below is about rather
+than a hole in either check.
 
-The other unenforced half is the rule for adding a knob, and it is unenforceable
-rather than merely unenforced. Whether a reason names a real deployment and a real
-failure of a derivation is a judgement about meaning, and no reading of this tree
-makes it. The review is where a bad one is caught.
+The rule for adding a knob is unenforceable rather than merely unenforced.
+Whether a reason names a real deployment and a real failure of a derivation is a
+judgement about meaning, and no reading of this tree makes it. The review is
+where a bad one is caught. `PROSE, NOT ENFORCEMENT`, and that is the whole of
+what carries the mark here now.
+
+The fourth condition of issue #12 is the landing described above. What issue #82
+itself stays open on is its second condition, and the reason is the certificate
+paragraph at the end of the block above.

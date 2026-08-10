@@ -55,6 +55,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/iderex/hoersaal/internal/config"
 	"github.com/iderex/hoersaal/internal/guard"
 )
 
@@ -128,8 +129,8 @@ var Rules = []Rule{
 	{
 		ID:      RuleConfigurationKey,
 		Issue:   "#82",
-		Subject: "the configuration keys this software accepts, of which there are none",
-		Waiting: "#82 fixes the list of keys and nothing in this tree reads configuration yet, so there is neither a list to compare against nor a key to compare",
+		Subject: "every string in a Go file outside internal/config that begins with one of the prefixes the four groups of docs/decisions/what-an-operator-may-set.md use",
+		check:   checkConfigurationKey,
 	},
 }
 
@@ -146,6 +147,19 @@ const (
 // refuses the import half of it; this is the half an import rule cannot see,
 // which is the unit's vocabulary arriving as a name or as a string.
 const AdapterDir = "internal/mediaunit"
+
+// ConfigDir is the one directory that holds the configuration keys as data, and
+// it is exempt from the rule that reads them for the same reason SelfDir is
+// exempt from the forwarding unit rule: the list has to be written down
+// somewhere, and the place it is written down cannot be judged against itself.
+//
+// What that exemption costs is the arm of the fourth condition of issue #82 an
+// import rule cannot reach, and it is not left uncovered. Whether the keys that
+// package accepts are the ones docs/decisions/what-an-operator-may-set.md fixes
+// is asserted in that package's own suite, which reads the block in the
+// document rather than holding a second copy of it. This rule is the other arm:
+// a key named anywhere else in the tree that the loader would refuse.
+const ConfigDir = "internal/config"
 
 // SelfDir is this package, and it is exempt from the forwarding unit rule for
 // the reason that it holds the vocabulary as data. The exemption is real and it
@@ -288,6 +302,99 @@ func checkForwardingUnitName(path string, _ []byte, file *ast.File, fset *token.
 		return true
 	})
 	return findings, nil
+}
+
+// checkConfigurationKey refuses a configuration key that internal/config would
+// not accept. It reads string literals, because a key travels as data: it is
+// what an operator writes in a file, what a message names back to them, and
+// what a test fixture holds, and it reaches Go as a string in every one of
+// those rather than as an identifier.
+//
+// The reach is the shape a key has and the prefixes the four groups use, and
+// that is a bound rather than a detail. What is inside it: a misspelling of a
+// real key, and a key nobody declared under a group that exists. What is
+// outside it: a key invented under a sixth prefix, and a key built by joining
+// two strings. The mistake this is written for is the one somebody actually
+// makes, which is typing a name that looks like the others.
+func checkConfigurationKey(path string, _ []byte, file *ast.File, fset *token.FileSet) ([]Finding, error) {
+	if packageDir(path) == ConfigDir {
+		return nil, nil
+	}
+
+	accepted := map[string]bool{}
+	for _, key := range config.Keys() {
+		accepted[key] = true
+	}
+
+	var findings []Finding
+	ast.Inspect(file, func(n ast.Node) bool {
+		lit, ok := n.(*ast.BasicLit)
+		if !ok || lit.Kind != token.STRING {
+			return true
+		}
+		text, err := strconv.Unquote(lit.Value)
+		if err != nil || accepted[text] || !looksLikeAKey(text) {
+			return true
+		}
+		findings = append(findings, Finding{
+			Path: path, Line: fset.Position(lit.Pos()).Line, Rule: RuleConfigurationKey,
+			Detail: fmt.Sprintf(
+				"%q reads as a configuration key and %s does not accept it; %s fixes what an operator may set and a key outside that list is a typo the operator never hears about (issue #82)",
+				text, ConfigDir, config.TheList),
+		})
+		return false
+	})
+	return findings, nil
+}
+
+// fileSuffixes are the endings this rule does not read, because a file name and
+// a configuration key are the same shape and this tree names files in Go all
+// day. That is measured rather than supposed: the first run of this rule over
+// the tree refused "unit.yml" in internal/textbytes' own suite, which is a
+// workflow and not a setting.
+//
+// The cost is stated rather than hidden. A key typed as listen.yml would pass
+// this rule, and nothing else would catch it either. That is a narrower hole
+// than a rule somebody deletes the first week because it refuses correct code.
+var fileSuffixes = []string{".go", ".json", ".md", ".mod", ".sum", ".txt", ".yaml", ".yml"}
+
+// looksLikeAKey says whether text is written the way a key on the list is: one
+// of the group prefixes, then lowercase letters, digits and hyphens, and
+// nothing else at all.
+//
+// The shape is what keeps a format string out. The other run of this rule over
+// the tree refused "pool.Pool{key: " in internal/pool, which begins with a
+// group prefix and is a fragment of Go being printed; a capital, a brace and a
+// space each put it outside the shape.
+func looksLikeAKey(text string) bool {
+	inside := false
+	for _, prefix := range config.Prefixes() {
+		if strings.HasPrefix(text, prefix) {
+			inside = true
+			break
+		}
+	}
+	if !inside {
+		return false
+	}
+	for _, suffix := range fileSuffixes {
+		if strings.HasSuffix(text, suffix) {
+			return false
+		}
+	}
+
+	name := text[strings.Index(text, ".")+1:]
+	if name == "" {
+		return false
+	}
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // checkLoggedIdentifier refuses a log call that carries something naming a

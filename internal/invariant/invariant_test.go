@@ -4,9 +4,11 @@
 package invariant
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/iderex/hoersaal/internal/config"
 	"github.com/iderex/hoersaal/internal/guard"
 )
 
@@ -50,6 +52,16 @@ import "log/slog"
 type joiner struct{ participantID string }
 
 func admitted(j joiner) { slog.Info("admitted", "who", j.participantID) }
+`,
+	},
+	{
+		rule: RuleConfigurationKey,
+		path: "cmd/hoersaal/main.go",
+		src: `package main
+
+import "fmt"
+
+func advise() { fmt.Printf("%s is the floor\n", "pool.minimun") }
 `,
 	},
 }
@@ -114,6 +126,57 @@ func started(r room) { slog.Info("started", "conference", r.conferenceID) }
 import "fmt"
 
 func main() { fmt.Printf("read %s\n", "docs") }
+`,
+	},
+	{
+		why:  "the key the typo above missed is one an operator may set",
+		path: "cmd/hoersaal/main.go",
+		src: `package main
+
+import "fmt"
+
+func advise() { fmt.Printf("%s is the floor\n", "pool.minimum") }
+`,
+	},
+	{
+		why:  "prose that mentions a key is not a key",
+		path: "cmd/hoersaal/main.go",
+		src: `package main
+
+import "fmt"
+
+func advise() { fmt.Println("raise pool.minimun if the first arrival is refused") }
+`,
+	},
+	{
+		why:  "the directory that holds the list may write a key that is not on it",
+		path: ConfigDir + "/config.go",
+		src: `package config
+
+func prefixes() []string { return []string{"pool.", "listen."} }
+`,
+	},
+	{
+		// This one is not hypothetical. The first run of the key rule over this
+		// tree refused it, in internal/textbytes' own suite.
+		why:  "a workflow file is named like a key and is a file",
+		path: "internal/textbytes/textbytes_test.go",
+		src: `package textbytes
+
+const workflow = "unit.yml"
+
+func Workflow() string { return workflow }
+`,
+	},
+	{
+		// Refused by the same first run, in internal/pool.
+		why:  "a fragment of Go being printed is not a key",
+		path: "internal/pool/pool.go",
+		src: `package pool
+
+import "fmt"
+
+func show() { fmt.Print("pool.Pool{key: ") }
 `,
 	},
 }
@@ -231,6 +294,57 @@ const leaked = "colibri"
 	}
 	if len(findings) != 1 || findings[0].Rule != RuleForwardingUnitName {
 		t.Fatalf("the same bytes outside this package should be one forwarding unit finding, got %v", findings)
+	}
+}
+
+// internal/config holds the key list as data and is exempt from the rule that
+// reads it. The exemption is stated in this package's comment and it is
+// asserted here, because an exemption nobody can see is how a rule stops
+// covering the tree without anybody deciding that.
+func TestTheConfigurationPackageIsExemptFromTheKeyRule(t *testing.T) {
+	src := `package config
+
+const invented = "listen.tls"
+`
+	findings, err := CheckFile(ConfigDir+"/config.go", []byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("the directory holding the list is meant to be exempt and was refused: %v", findings)
+	}
+
+	// The same bytes anywhere else are a finding, which is what makes the line
+	// above an exemption rather than the rule being off.
+	findings, err = CheckFile("internal/pool/pool.go", []byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 1 || findings[0].Rule != RuleConfigurationKey {
+		t.Fatalf("the same bytes outside that directory should be one configuration key finding, got %v", findings)
+	}
+}
+
+// The key rule reads the list out of internal/config rather than keeping a
+// second copy of it, so a key added there is accepted here on the same commit.
+// Two lists would drift and the drift would be silent, which is the reason the
+// clock rule below is read out of internal/guard as well.
+func TestTheKeyRuleReadsTheListRatherThanACopy(t *testing.T) {
+	keys := config.Keys()
+	if len(keys) == 0 {
+		t.Fatal("the list is empty, so this rule reads nothing")
+	}
+	for _, key := range keys {
+		src := "package pool\n\nconst k = " + strconv.Quote(key) + "\n"
+		findings, err := CheckFile("internal/pool/pool.go", []byte(src))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, f := range findings {
+			if f.Rule == RuleConfigurationKey {
+				t.Errorf("%s is a key the loader accepts and the rule refused it: %s", key, f.Detail)
+			}
+		}
 	}
 }
 

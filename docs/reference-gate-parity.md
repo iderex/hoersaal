@@ -63,8 +63,8 @@ The workflow list the second and third sections are derived from:
 warnings as errors, restores in locked mode, scans for vulnerable dependencies,
 runs the suite, and enforces the coverage bar. Here those are separate checks, so
 a failing compile and a failing suite are two different red lights rather than
-one, and `build` and `unit` already run. The locked restore is #20 and the
-coverage bar is #92, both still open.
+one, and `build` and `unit` already run. The coverage bar is a third, `coverage`,
+which #92 landed. The locked restore is #20 and is still open.
 
 **ABI floor build**, dropped. It builds the plugin against the oldest host
 version whose interface it claims to support. Nothing here loads into somebody
@@ -164,12 +164,18 @@ a gate element.
     publish-failure-alert.yml: schedule workflow_dispatch
     regenerate-manifest.yml: workflow_dispatch
 
-**The security-surface coverage bar**, adopted, issue #92. The reference pins the
-bar on the modules that decide security outcomes rather than on the whole
-codebase, at the figure quoted above. The surfaces that decide admission,
-authorisation and placement are the counterpart here, and placement is a surface
-that gate has nothing like, because a wrong placement is a room that degrades
-rather than a permission wrongly granted.
+**The security-surface coverage bar**, adopted, issue #92, landed as `coverage`.
+The reference pins the bar on the modules that decide security outcomes rather
+than on the whole codebase, at the figure quoted above. The surfaces that decide
+admission, authorisation and placement are the counterpart here, and placement is
+a surface that gate has nothing like, because a wrong placement is a room that
+degrades rather than a permission wrongly granted.
+
+The shape is adopted and the number is not. `internal/coverage` derives its own
+from what this tree's own surfaces reach, and the package comment there carries
+the derivation. Taking 92.0 across would have failed on the day it landed, over
+code nobody has said is undertested, and a figure copied from a gate in another
+language over other code is not a reason.
 
 ## What this repository adds
 

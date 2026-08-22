@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-FileCopyrightText: 2026 Nils Lehnen
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package mediaport is the interface the control plane uses to talk to a

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-FileCopyrightText: 2026 Nils Lehnen
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // The suite is in the package rather than beside it, matching internal/placement

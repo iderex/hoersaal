@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-FileCopyrightText: 2026 Nils Lehnen
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Command invariant runs the rules in internal/invariant over the Go files in

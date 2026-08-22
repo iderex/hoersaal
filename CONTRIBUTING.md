@@ -152,12 +152,12 @@ A source file begins with its copyright holder and its licence, in the SPDX
 form, before anything else in the file including the package comment. In a Go
 file:
 
-    // SPDX-FileCopyrightText: 2026 iderex
+    // SPDX-FileCopyrightText: 2026 Nils Lehnen
     // SPDX-License-Identifier: AGPL-3.0-or-later
 
 In a workflow, the same two lines with the comment marker that language uses:
 
-    # SPDX-FileCopyrightText: 2026 iderex
+    # SPDX-FileCopyrightText: 2026 Nils Lehnen
     # SPDX-License-Identifier: AGPL-3.0-or-later
 
 Leave a blank line under them so the package comment stays the package comment.

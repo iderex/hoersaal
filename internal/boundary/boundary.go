@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-FileCopyrightText: 2026 Nils Lehnen
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package boundary is the place a connection out of this process is made, and

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 iderex
+// SPDX-FileCopyrightText: 2026 Nils Lehnen
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package srcheader refuses a source file that does not open by naming its
@@ -62,7 +62,7 @@ import (
 // operator reads. ReadNotice is what takes it out of the file, and
 // TestTheHeaderAgreesWithTheNoticeInLicense is what refuses this constant the day
 // the notice changes and this does not.
-const Holder = "2026 iderex"
+const Holder = "2026 Nils Lehnen"
 
 // The two tags, in the order they have to appear. They are the SPDX names
 // rather than names invented here, because a machine reading a vendored copy of

@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Nils Lehnen
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The shared half of the hygiene rules, called rather than copied (#173).
+#
+# WHY THIS SITS BESIDE pr-hygiene.yml AND DOES NOT REPLACE IT. What the two have
+# in common is the body and the subject rules; what this board has on top is its
+# own - the section-by-section comparison against PULL_REQUEST_TEMPLATE.md, the
+# failure-closed path when that template is present but empty, and the refusal
+# to judge at all when the event payload or the commit range is unreadable.
+# Removing any of those would be standardising by losing coverage. A local rule
+# goes only once the shared check is shown to cover it, one rule at a time.
+#
+# THE SUBJECT RULE IS ON HERE AND OFF ALMOST EVERYWHERE ELSE. This board's
+# `internal/prhygiene` already refuses a subject without [#N], and all twenty of
+# the last authored subjects carry one. It is the only board of the twenty-one
+# that does not have to switch the rule off to call the check.
+#
+# PINNED BY HASH, NOT BY BRANCH. `action-pins` on this board refuses a moving
+# reference, and it is right to: `@main` would let the called repository change
+# what executes here without anybody reviewing the change.
+name: Shared hygiene
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    uses: iderex/wache/.github/workflows/pr-hygiene.yml@9b311243c2d0d0ced7feb957a20bc178acce6a5d # v1.0.0

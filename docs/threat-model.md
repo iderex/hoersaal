@@ -32,30 +32,57 @@ have built, and the effect on this document is that the early entries name
 files and the later ones name issues.
 
     git ls-tree -d --name-only origin/main internal/
+    internal/admission
     internal/arch
     internal/boundary
     internal/clock
+    internal/config
+    internal/coverage
     internal/doclint
     internal/domain
     internal/fuzzing
     internal/guard
+    internal/invariant
     internal/mediafake
+    internal/mediaharness
     internal/mediaport
     internal/mediaunit
     internal/placement
+    internal/pool
+    internal/presence
     internal/prhygiene
     internal/random
     internal/roomcred
     internal/secret
+    internal/selfcheck
     internal/srcheader
     internal/textbytes
     internal/wire
 
-`internal/mediafake`, `internal/mediaport`, `internal/mediaunit` and
-`internal/placement` hold a package comment and no code. That is stated here
-because an entry naming one of them is naming a plan, and a reader who assumed
-otherwise would be reading this document as an inventory of defences it does
-not have.
+THIS LISTING AND THE SENTENCE UNDER IT WENT STALE TOGETHER, AND THE SENTENCE IS
+THE HALF THAT MATTERED. It named `internal/mediafake`, `internal/mediaport`,
+`internal/mediaunit` and `internal/placement` as holding a package comment and
+no code. Three of the four now hold several hundred lines each, and one still
+does not:
+
+    for d in mediafake mediaport mediaunit placement; do
+      printf '%s ' "$d"
+      git ls-tree -r --name-only origin/main -- "internal/$d" | wc -l
+    done
+    mediafake 3
+    mediaport 3
+    mediaunit 1
+    placement 3
+
+`internal/mediaunit` is the one that is still a package comment and nothing
+else, and it is the adapter, which is the only one of the four that could
+refuse anything on a machine carrying somebody's media. That is stated here
+because an entry naming it is naming a plan, and a reader who assumed otherwise
+would be reading this document as an inventory of defences it does not have.
+
+The drift was found by reading this document against the tree rather than by
+anybody meeting it, and it is the reason the entries below carry their own
+re-run rather than resting on this listing.
 
 ## A stranger sends bytes to the signalling endpoint
 
@@ -85,9 +112,16 @@ What is left. The transport underneath, the point at which a connection is
 accepted at all, and any limit on how many connections one source may open are
 not in this tree. `internal/wire` is the framing half of the signalling work
 and the connection half is not built, so nothing here bounds the number of
-strangers, only what each one may say. Issue #35 is where a connection first
-means something and issue #64 is where the deployment refuses rather than
-degrades.
+strangers, only what each one may say. Issue #64 is where the deployment
+refuses rather than degrades.
+
+What one message may cause is bounded now, and that is a change since this
+entry was written rather than an addition to it. `internal/admission` reads a
+credential before anything that costs something happens, so a stranger holding
+none reaches neither the placer nor a forwarding unit, and the exchange is
+argued in [decisions/room-admission.md](decisions/room-admission.md). How many
+strangers may open a connection at all is untouched by that, which is the
+sentence above and is still the whole of the gap.
 
 ## A stranger presents a credential they wrote themselves
 
@@ -133,12 +167,27 @@ where the numbers are, and issue #86 is where the key's own handling is owed.
 Somebody who was admitted legitimately asks the forwarding unit for a stream
 nobody offered them, or keeps receiving one after their subscription ended.
 
-Nothing holds this today. `internal/mediaport` is the interface the control
-plane uses to talk to a forwarding unit and it is empty; the eight operations,
-their arguments and their errors are specified in
-[decisions/media-plane-port.md](decisions/media-plane-port.md) and not yet
-transcribed. `internal/mediafake` and `internal/mediaunit` are empty for the
-same reason.
+Nothing holds this today, and what moved is where the gap sits.
+`internal/mediaport` is the interface the control plane uses to talk to a
+forwarding unit, and the eight operations, their arguments and their errors are
+transcribed from [decisions/media-plane-port.md](decisions/media-plane-port.md)
+into it; `internal/mediafake` satisfies that interface as a bookkeeper carrying
+no media. What is still empty is `internal/mediaunit`, the adapter, which is
+the only one of the three that could refuse anything on a real unit.
+
+THIS PARAGRAPH SAID ALL THREE WERE EMPTY AND TWO OF THEM ARE NOT:
+
+    git show origin/main:internal/mediaport/mediaport.go | wc -l
+    383
+    git show origin/main:internal/mediafake/mediafake.go | wc -l
+    765
+    git ls-tree -r --name-only origin/main -- internal/mediaunit
+    internal/mediaunit/doc.go
+
+It was found by reading this document against the tree while the entries below
+were being re-checked, rather than by anybody meeting the gap. The correction
+does not move this entry: an interface and a fake refuse nothing on a machine
+that is carrying somebody's media.
 
 Written as an absence. What subscriptions are and what each participant
 receives is issue #44. The unit that enforces it is issue #43, and the fake
@@ -167,8 +216,23 @@ issue #34, and the moderation the server enforces rather than requests is issue
 Written as an absence, with the shape the answer has to have. Refusing a
 publication is the unit's decision at the moment it accepts one, not a check
 the client is asked to make, and not a check the control plane makes once at
-admission and never again. Issue #38 is written in those terms and issue #35
-carries the credential half.
+admission and never again. Issue #38 is written in those terms.
+
+The credential half exists now and the rest does not, so the two are separated
+here rather than left as one absence. `internal/admission` decides which of the
+two admissions the unit is asked for from the role the credential carries,
+before the unit is asked at all, so a role that may not publish reaches
+AdmitSubscriber and never AdmitPublisher:
+
+    go test -run TestAListenerWhoAsksToPublishIsRefusedAndNoUnitIsToldAnything -v ./internal/admission/
+    --- PASS: TestAListenerWhoAsksToPublishIsRefusedAndNoUnitIsToldAnything
+
+That test asserts the unit was told about nobody at all, which is what
+separates a check made before the damage from one made after it. What it does
+not do is make the unit refuse. The exchange only declines to ask for more than
+was granted, and a unit that accepted a publication it was never told to accept
+would be caught by nothing here. That is the adapter on issue #43 and the
+enforcement on issue #38, and it is why this entry stays an absence.
 
 ## The client is modified
 
@@ -196,10 +260,27 @@ people's media. A pool that trusts whatever registers is a media interception
 service, and this is the entry where that is stated plainly rather than left to
 be inferred.
 
-Nothing holds it today. There is no pool. Written as an absence, and the issue
-is #56, whose own body already carries the requirement that a unit
-authenticates on registration and that an unauthenticated registration is shown
-refused.
+THIS ENTRY SAID NOTHING HELD IT AND THAT THERE WAS NO POOL. There is one, and
+it authenticates. `internal/pool` is the authoritative record of which units
+exist, issue #56 landed it, and a unit joining presents a proof that it holds
+the key of the installation rather than merely claiming an identifier:
+
+    git show origin/main:internal/pool/pool.go | grep -n "^func Prove"
+    318:func Prove(key secret.Bytes, unit placement.UnitID, issuedAt time.Time) ([]byte, error) {
+
+    gh api repos/iderex/hoersaal/issues/56 --jq "[.number,.state,.state_reason]|@tsv"
+    56	closed	completed
+
+So this entry is no longer an absence. It was found by reading this document
+against the tree, and the sentence it replaces had been false since that issue
+landed.
+
+What the mechanism does not reach gets the same sentence, because a reader who
+takes the repair for the whole answer is making the mistake this entry exists
+against. A proof of the key says the machine was given the key. It says nothing
+about that machine still being the one the operator installed it on, and
+nothing in this tree notices a key that leaked. Where the key comes from and
+how it rotates is issue #86 and is not answered.
 
 Two things beside it, because an attacker does not have to forge a registration
 to be in the path. Reachability is checked as part of becoming eligible rather
@@ -373,8 +454,14 @@ entry above claims a figure.
 They refer to this document rather than repeating parts of it, because a
 paraphrase of a boundary is where a condition gets added by accident.
 
-Neither exists yet. The security policy and the private reporting route are
-issue #106, and the data protection statement is issue #103, which cannot be
-finished while entry 2 of issue #1 is open. Until both are written this
-document has nothing pointing at it, and that is the condition issue #105 stays
-open on.
+THIS PARAGRAPH SAID NEITHER EXISTED AND ONE OF THEM DOES. `SECURITY.md` is on
+the default branch and points here rather than paraphrasing:
+
+    git grep -n "threat-model" origin/main -- SECURITY.md
+    origin/main:SECURITY.md:151:`docs/threat-model.md` is the long form: who attacks this service, what refuses
+
+The data protection statement is issue #103 and does not exist. It cannot be
+finished while entry 2 of issue #1 is open, which is that issue's own planning
+comment rather than a reading made here. So this condition of issue #105 is met
+for one of the two documents and waits on a reserved decision for the other,
+and that is what issue #105 stays open on.

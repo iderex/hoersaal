@@ -25,24 +25,38 @@
 // BarTenths, which is 89.0 percentage points. It is derived rather than chosen,
 // and the derivation is short enough to check.
 //
-// The lowest surface today is internal/placement, at 93 of 103 statements. One
-// statement of that package is 100/103, which is 0.97 of a point, so a bar
-// closer to it than that is a bar the first uncovered statement added to the
-// tightest surface reds. That is the check this issue says it does not want: it
-// asks for a bar set from what the code reaches, not one that forces tests
-// written to touch lines. So the bar is that surface less one of its
-// statements, 89.2, rounded down to the whole point.
+// The derivation is the tightest surface less one of its statements, rounded
+// down to the whole point. That is the check issue #92 asks for: a bar set from
+// what the code reaches, not one that forces tests written to touch lines,
+// because a bar closer to the tightest surface than one statement is a bar the
+// first uncovered statement added to that surface reds.
 //
-// The figure this package prints for that surface is 90.2 and `go test -cover`
-// prints 90.3 for the same numbers. Both are 93/103; this one truncates and the
-// toolchain rounds. A bar is a floor, so a figure that rounded up would pass a
-// package sitting below it, and the truncation is deliberate rather than a
-// disagreement to be reconciled.
+// THE TIGHTEST SURFACE MOVED WHEN internal/admission JOINED THE LIST AND THE BAR
+// DID NOT. This paragraph named internal/placement at 93 of 103 statements, one
+// statement of it as 0.97 of a point, and 89.2 rounded down as the answer. The
+// admission path on issue #35 arrived with its own path, which is the change the
+// section above says such a surface arrives with, and it is tighter:
+//
+//	go test -count=1 -covermode=set -coverprofile=cover.out ./... >/dev/null
+//	go run ./cmd/coverage cover.out
+//	  90.1%  at or above  github.com/iderex/hoersaal/internal/admission (147/163 statements)
+//	  90.2%  at or above  github.com/iderex/hoersaal/internal/placement (93/103 statements)
+//
+// So the derivation now runs over 147 of 163. One statement of that package is
+// 100/163, which is 0.61 of a point, and the surface less one of its statements
+// is 146/163, or 89.5, which rounds down to the same whole point. BarTenths is
+// unchanged, and it is unchanged because the arithmetic was re-run rather than
+// because nobody looked.
+//
+// The figure this package prints for a surface truncates and `go test -cover`
+// rounds, so the two disagree in the last digit for the same numbers. A bar is a
+// floor, so a figure that rounded up would pass a package sitting below it, and
+// the truncation is deliberate rather than a disagreement to be reconciled.
 //
 // What that costs, said rather than left to be inferred. A bar under every
 // current figure is a bar nothing is currently held to, so what this refuses
 // today is a fall of more than one statement in the tightest surface rather
-// than any fall at all. The alternative was to raise internal/placement first
+// than any fall at all. The alternative was to raise the tightest surface first
 // and set the bar against the raised figure, which is work on that package and
 // not on this one.
 //
@@ -127,6 +141,10 @@ func Surfaces() []Surface {
 		{
 			Path: "github.com/iderex/hoersaal/internal/pool",
 			Why:  "the pool: it decides which machines exist and admits the ones that carry other people's media",
+		},
+		{
+			Path: "github.com/iderex/hoersaal/internal/admission",
+			Why:  "the admission path: it decides who is let into a room and whether the unit is told to accept a publication from them",
 		},
 	}
 }

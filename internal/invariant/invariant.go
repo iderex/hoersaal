@@ -124,7 +124,30 @@ var Rules = []Rule{
 		ID:      RuleClientDisplay,
 		Issue:   "#75",
 		Subject: "the client decision layer, which does not exist",
-		Waiting: "the client platform is undecided on #74, so the imports that carry a display have no names yet and a list written now would be a list against a guess",
+		// WHAT THIS WAITED ON CHANGED AND THE SENTENCE HAD NOT. It said the
+		// client platform was undecided on #74, so a display-carrying import
+		// had no name and a list written then would have been a list against a
+		// guess. #74 is decided and closed, and docs/decisions/client-platform.md
+		// fixes the browser, so the vocabulary is no longer what is missing:
+		//
+		//	gh api repos/iderex/hoersaal/issues/74 --jq '[.number,.state,.state_reason]|@tsv'
+		//	74	closed	completed
+		//
+		// It was found by re-running the command a neighbouring document pastes
+		// and reading the line that had stopped being true, rather than by
+		// anybody meeting the rule.
+		//
+		// What is missing instead is the subject. There is no client decision
+		// layer, and the first file of one cannot arrive quietly: that document
+		// names four top-level directories and internal/arch refuses a fifth,
+		// so a client directory is a change to it first. That is #75, and it is
+		// also where the language, the framework and the headless driver are
+		// each the means check of the change that introduces them, which
+		// client-platform.md says in as many words. This checker reads Go
+		// through the syntax tree, so what it will be asked to read is a second
+		// question that arrives with the layer rather than one this entry can
+		// answer now.
+		Waiting: "there is no client decision layer in this tree and the first file of one is a change to docs/repository-layout.md before it is a change to the tree, so this rule has no subject; #75 builds the layer and pins what its imports may be",
 	},
 	{
 		ID:      RuleConfigurationKey,

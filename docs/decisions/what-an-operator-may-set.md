@@ -212,15 +212,22 @@ that holds the code to the document.
 anywhere in the tree, which is the arm that catches the same typo somewhere the
 loader never sees it. The rule was declared and not run until this landed:
 
-    go run ./cmd/invariant | sed -n '/rules run/,/Go files read/p'
+    go run ./cmd/invariant | sed -n '/^rules run/,/^  no-display/p'
     rules run: 4
       no-machine-clock-or-random-source (#27), over every Go file outside internal/clock/clock.go and internal/random/random.go
       no-forwarding-unit-name-outside-the-adapter (#43), over every Go file outside internal/mediaunit and this package
       no-personal-identifier-in-a-log-call (#85), over every call into log or log/slog, and every call on a value named logger, in any Go file
       no-configuration-key-outside-the-fixed-list (#82), over every string in a Go file outside internal/config that begins with one of the prefixes the four groups of docs/decisions/what-an-operator-may-set.md use
     rules not run: 1
-      no-display-dependency-in-the-client-decision-layer (#75): the client platform is undecided on #74, so the imports that carry a display have no names yet and a list written now would be a list against a guess
-    Go files read: 62
+      no-display-dependency-in-the-client-decision-layer (#75): there is no client decision layer in this tree and the first file of one is a change to docs/repository-layout.md before it is a change to the tree, so this rule has no subject; #75 builds the layer and pins what its imports may be
+
+Two things about that paste changed and one of them is a correction. The last
+rule's sentence named issue #74 as undecided and that issue is closed, which is
+recorded at the rule in `internal/invariant`. And the range the command selected
+used to end at the count of Go files the run read, which moves with every file
+added to this tree, so the paste went stale on changes that had nothing to do
+with this document. It ends at the last rule instead, which is the thing this
+section is about.
 
 What neither arm reaches, said here rather than left to be inferred from a green
 run. The second rule reads the shape of a key, so a key invented under a sixth

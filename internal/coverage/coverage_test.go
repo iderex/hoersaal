@@ -16,14 +16,19 @@ import (
 //
 // One row per statement, so a fixture's arithmetic is countable by eye.
 
-// The four surface paths, named here for what each surface is rather than for
+// The five surface paths, named here for what each surface is rather than for
 // its package. A constant whose name carries "cred" is read by the security
 // analyser as a hardcoded credential, and this file holds none.
+//
+// The first two are one room's two halves and the names keep them apart:
+// invitation is what is minted and checked, and desk is the exchange that reads
+// one and puts somebody on a unit.
 const (
-	admission = "github.com/iderex/hoersaal/internal/roomcred"
-	decoder   = "github.com/iderex/hoersaal/internal/wire"
-	placer    = "github.com/iderex/hoersaal/internal/placement"
-	units     = "github.com/iderex/hoersaal/internal/pool"
+	invitation = "github.com/iderex/hoersaal/internal/roomcred"
+	desk       = "github.com/iderex/hoersaal/internal/admission"
+	decoder    = "github.com/iderex/hoersaal/internal/wire"
+	placer     = "github.com/iderex/hoersaal/internal/placement"
+	units      = "github.com/iderex/hoersaal/internal/pool"
 )
 
 // profile writes a mode line and then one row per statement for each package,
@@ -33,7 +38,7 @@ func profile(t *testing.T, of map[string][2]int) string {
 	var b strings.Builder
 	b.WriteString("mode: set\n")
 	line := 1
-	for _, pkg := range []string{admission, decoder, placer, units, "github.com/iderex/hoersaal/internal/domain"} {
+	for _, pkg := range []string{invitation, desk, decoder, placer, units, "github.com/iderex/hoersaal/internal/domain"} {
 		counts, held := of[pkg]
 		if !held {
 			continue
@@ -71,10 +76,11 @@ func itoa(n int) string {
 // difference between a green run and a red one.
 func everySurfaceAtTheBar() map[string][2]int {
 	return map[string][2]int{
-		admission: {1000, 890},
-		decoder:   {1000, 890},
-		placer:    {1000, 890},
-		units:     {1000, 890},
+		invitation: {1000, 890},
+		desk:       {1000, 890},
+		decoder:    {1000, 890},
+		placer:     {1000, 890},
+		units:      {1000, 890},
 	}
 }
 
@@ -175,7 +181,7 @@ func TestTheReportSaysWhatItExamined(t *testing.T) {
 	if err := r.Write(&out); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	for _, want := range []string{"the bar is 89.0%", "4 surface(s)", "at or above", "every surface is at or above the bar."} {
+	for _, want := range []string{"the bar is 89.0%", "5 surface(s)", "at or above", "every surface is at or above the bar."} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("the report does not carry %q:\n%s", want, out.String())
 		}

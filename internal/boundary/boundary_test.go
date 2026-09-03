@@ -4,6 +4,13 @@
 package boundary
 
 import (
+	"fmt"
+	"go/parser"
+	"go/token"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -309,4 +316,195 @@ func TestAFileThatDoesNotParseIsAnErrorRatherThanAPass(t *testing.T) {
 	if _, err := CheckFile("internal/pool/pool.go", []byte("package")); err == nil {
 		t.Error("a file that does not parse was read as a file with nothing in it")
 	}
+}
+
+// TestThePlaceItselfHoldsNoConnectionToday reads the files that are allowed to
+// originate a connection as though they were not allowed to, and fails on any
+// connection it finds. TestTreeIsClean cannot see this: the place is exempt
+// from the rule by construction, so a dial written here passes it. What this
+// asserts is the sentence docs/data-protection.md carries about the outbound
+// connections this software can make, which is that today there are none, and
+// a sentence like that is worth more asserted than written. The day the
+// adapter on issue #43 lands its connection here, this test is the one that
+// changes, and the list in that document changes with it.
+func TestThePlaceItselfHoldsNoConnectionToday(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("reading the place: %v", err)
+	}
+	read, found := 0, 0
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") {
+			continue
+		}
+		src, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatalf("reading %s: %v", name, err)
+		}
+		// Judged under a path outside the place, so the exemption that
+		// isThePlace grants does not apply and the file is read like any
+		// other.
+		findings, err := CheckFile("elsewhere/"+name, src)
+		if err != nil {
+			t.Fatalf("parsing %s: %v", name, err)
+		}
+		read++
+		found += len(findings)
+		for _, f := range findings {
+			t.Errorf("%s originates a connection, so the outbound list in docs/data-protection.md is no longer empty: %s", name, f)
+		}
+	}
+	if read == 0 {
+		t.Fatal("no file was read, so nothing was asserted")
+	}
+	t.Logf("files in the place read as though they were elsewhere: %d, connections found: %d", read, found)
+}
+
+// TestTheServiceStartsNoProcessThatCouldReachOut walks the import closure of
+// the service binary inside this module and refuses os/exec anywhere in it.
+// The rule in this package reads connections and says in its own comment that
+// a process started to make one is outside what it reads. For the service
+// that gap is closed here rather than left: cmd/hoersaal and everything it
+// links start no process, so there is no route by which something other than
+// this binary contacts an endpoint on its behalf.
+//
+// It is the closure of the binary and not the whole tree on purpose. Two
+// commands in this repository do start processes, and both are tooling that
+// runs on this repository rather than on a deployment: cmd/prhygiene runs git
+// over a pull request, and cmd/mediaharness starts what the harness drives.
+// Neither is linked into the service, and the walk is what shows that rather
+// than a list that says so.
+func TestTheServiceStartsNoProcessThatCouldReachOut(t *testing.T) {
+	packages, findings, err := closure("../..", "cmd/hoersaal", modulePath(t))
+	if err != nil {
+		t.Fatalf("walking the closure: %v", err)
+	}
+	if len(packages) < 2 {
+		t.Fatalf("the walk reached %d package(s), so it did not follow an import and asserts nothing", len(packages))
+	}
+	for _, f := range findings {
+		t.Errorf("%s", f)
+	}
+	t.Logf("packages linked into the service: %s", strings.Join(packages, " "))
+}
+
+// TestTheClosureWalkRefusesAProcessStart is the proof that the walk above
+// bites, against a module made for the purpose: the start package imports a
+// second package of the same module, and that second one imports os/exec. The
+// finding has to be in the second package, because a walk that only read the
+// start directory would pass a service that reaches out one import away.
+func TestTheClosureWalkRefusesAProcessStart(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, src string) {
+		t.Helper()
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(src), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("cmd/svc/main.go", "package main\n\nimport _ \"example.test/mod/internal/deep\"\n\nfunc main() {}\n")
+	write("internal/deep/deep.go", "package deep\n\nimport \"os/exec\"\n\nvar _ = exec.Command\n")
+	write("internal/deep/deep_test.go", "package deep\n\nimport \"os/exec\"\n\nvar _ = exec.Command\n")
+
+	packages, findings, err := closure(root, "cmd/svc", "example.test/mod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(packages, " "); got != "cmd/svc internal/deep" {
+		t.Errorf("the walk should reach both packages in order, got %q", got)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("want exactly one finding, for the production file and not the test file, got %d: %v", len(findings), findings)
+	}
+	if findings[0].Path != "internal/deep/deep.go" || findings[0].Line != 3 {
+		t.Errorf("the finding should sit on the import in the second package, got %s", findings[0])
+	}
+
+	// One change away: the same module with the import gone refuses nothing.
+	write("internal/deep/deep.go", "package deep\n\nvar Nothing = 0\n")
+	if _, findings, err = closure(root, "cmd/svc", "example.test/mod"); err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Errorf("a module that starts no process should pass, got %v", findings)
+	}
+}
+
+// closure walks the production files of start and of every package of module
+// that they import, directly or through another, and answers with the packages
+// it reached in the order it reached them and a finding for every import of
+// os/exec. _test.go files are not read, because a test is not linked into the
+// binary and the question is what the binary can do.
+func closure(root, start, module string) ([]string, []Finding, error) {
+	var packages []string
+	var findings []Finding
+	seen := map[string]bool{}
+	queue := []string{start}
+	for len(queue) > 0 {
+		dir := queue[0]
+		queue = queue[1:]
+		if seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		packages = append(packages, dir)
+
+		entries, err := os.ReadDir(filepath.Join(root, filepath.FromSlash(dir)))
+		if err != nil {
+			return nil, nil, err
+		}
+		var next []string
+		for _, e := range entries {
+			name := e.Name()
+			if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+				continue
+			}
+			path := dir + "/" + name
+			fset := token.NewFileSet()
+			file, err := parser.ParseFile(fset, filepath.Join(root, filepath.FromSlash(path)), nil, parser.ImportsOnly)
+			if err != nil {
+				return nil, nil, err
+			}
+			for _, imp := range file.Imports {
+				imported, err := strconv.Unquote(imp.Path.Value)
+				if err != nil {
+					return nil, nil, fmt.Errorf("%s: unreadable import %s", path, imp.Path.Value)
+				}
+				if imported == "os/exec" {
+					findings = append(findings, Finding{
+						Path: path, Line: fset.Position(imp.Pos()).Line,
+						Detail: "imports os/exec, which can start a process that reaches what this rule refuses; the service links nothing that starts one (docs/data-protection.md, the outbound connections)",
+					})
+				}
+				if strings.HasPrefix(imported, module+"/") {
+					next = append(next, strings.TrimPrefix(imported, module+"/"))
+				}
+			}
+		}
+		sort.Strings(next)
+		queue = append(queue, next...)
+	}
+	return packages, findings, nil
+}
+
+// modulePath reads the module this repository is, from go.mod rather than from
+// a constant here, so that the walk above follows the imports the toolchain
+// follows and not the ones a test remembered.
+func modulePath(t *testing.T) string {
+	t.Helper()
+	src, err := os.ReadFile("../../go.mod")
+	if err != nil {
+		t.Fatalf("reading go.mod: %v", err)
+	}
+	for _, line := range strings.Split(string(src), "\n") {
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		}
+	}
+	t.Fatal("go.mod names no module")
+	return ""
 }

@@ -460,8 +460,13 @@ the default branch and points here rather than paraphrasing:
     git grep -n "threat-model" origin/main -- SECURITY.md
     origin/main:SECURITY.md:151:`docs/threat-model.md` is the long form: who attacks this service, what refuses
 
-The data protection statement is issue #103 and does not exist. It cannot be
-finished while entry 2 of issue #1 is open, which is that issue's own planning
-comment rather than a reading made here. So this condition of issue #105 is met
-for one of the two documents and waits on a reserved decision for the other,
-and that is what issue #105 stays open on.
+THE PARAGRAPH THAT STOOD HERE SAID THE DATA PROTECTION STATEMENT DID NOT EXIST
+AND COULD NOT BE FINISHED WHILE ENTRY 2 OF ISSUE #1 WAS OPEN. Both halves had
+stopped being true: I answered entry 2 on 2026-08-09, and the statement is
+[data-protection.md](data-protection.md), which points here for who attacks
+this service and what refuses them rather than carrying a second copy:
+
+    git grep -c 'threat-model.md' -- docs/data-protection.md
+    docs/data-protection.md:2
+
+So this condition of issue #105 is met for both documents.

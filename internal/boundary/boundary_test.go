@@ -338,6 +338,9 @@ func TestThePlaceItselfHoldsNoConnectionToday(t *testing.T) {
 		if e.IsDir() || !strings.HasSuffix(name, ".go") {
 			continue
 		}
+		// #nosec G304 -- name came out of reading this package's own
+		// directory, so what is opened is a file of the repository the test
+		// runs in. Nothing reaches this from a caller choosing a path.
 		src, err := os.ReadFile(name)
 		if err != nil {
 			t.Fatalf("reading %s: %v", name, err)

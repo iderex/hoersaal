@@ -153,10 +153,21 @@ type Driver string
 // TheList records.
 const DriverNone Driver = "none"
 
-// drivers is every driver this software has. It holds one entry today and issue
-// #63 is what adds to it; a name outside it is refused rather than carried to
-// whatever would have dialled it.
-var drivers = []Driver{DriverNone}
+// DriverListed hands out the machines the operator wrote into
+// provisioner.machines, in that order, and starts nothing on them. It is the
+// first driver issue #63 builds, and docs/decisions/provisioning-driver.md is
+// where its shape is argued.
+const DriverListed Driver = "listed"
+
+// drivers is every driver this software has. A name outside it is refused
+// rather than carried to whatever would have dialled it, and
+// internal/provision holds the code for each name here, with a test that the
+// two lists agree.
+var drivers = []Driver{DriverNone, DriverListed}
+
+// Drivers is every driver name this software accepts, as a fresh slice, so
+// that the package holding the code for them can assert it has code for each.
+func Drivers() []Driver { return append([]Driver(nil), drivers...) }
 
 // Settings is one validated configuration. Every field has been judged by the
 // time a caller holds one of these, so nothing downstream checks a value again
@@ -431,6 +442,10 @@ func (s Settings) validate() error {
 	if len(s.ProvisionerMachines) > 0 && s.ProvisionerDriver == DriverNone {
 		return fmt.Errorf("%s: %w: %d machine(s) are named and %s is the driver, so nothing would ever use them",
 			KeyProvisionerMachines, ErrValue, len(s.ProvisionerMachines), DriverNone)
+	}
+	if len(s.ProvisionerMachines) == 0 && s.ProvisionerDriver == DriverListed {
+		return fmt.Errorf("%s: %w: %s is the driver and no machine is listed, so it would have nothing to hand out",
+			KeyProvisionerMachines, ErrValue, DriverListed)
 	}
 	return nil
 }

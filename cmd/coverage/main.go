@@ -25,8 +25,18 @@ import (
 
 func main() {
 	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "usage: coverage <profile>\n")
+		fmt.Fprintf(os.Stderr, "usage: coverage <profile> | coverage -surfaces\n")
 		os.Exit(2)
+	}
+
+	// -surfaces prints the packages under the bar, one import path per line,
+	// so that a run which needs the same set, the mutation testing on issue
+	// #93 among them, reads it from here rather than carrying a second copy.
+	if os.Args[1] == "-surfaces" {
+		for _, s := range coverage.Surfaces() {
+			fmt.Println(s.Path)
+		}
+		return
 	}
 
 	// #nosec G304 -- the path is this command's only argument, given by

@@ -127,8 +127,16 @@ already carries has it; and twice a week rather than weekly, because an Actions
 cache is evicted after seven days unread and the corpus is what the schedule
 exists to accumulate.
 
-**Stryker mutation testing**, adapted, issue #93, reporting rather than gating,
-which is the posture it already has there.
+**Stryker mutation testing**, adapted and already running, issue #93, reporting
+rather than gating, which is the posture it already has there and a deliberate
+deviation from how every other check on this board is held.
+`.github/workflows/mutation.yml` runs a Go mutation tool over the surfaces the
+coverage bar names, weekly and on dispatch, and refuses nothing: a score is a
+measurement of the suite rather than a verdict on a change, the same commit
+scores differently between runs as the tool's timeouts fall, and a survivor is
+answered by a test or by a written reason in
+[mutation-testing.md](mutation-testing.md) rather than by a red gate. That
+document carries the argument and the first recorded run.
 
 **E2E Login Harness**, adapted, issues #51 and #75. Theirs logs into real identity
 providers on a schedule and on a pull request that touches the harness. The

@@ -285,9 +285,15 @@ how it rotates is issue #86 and is not answered.
 Two things beside it, because an attacker does not have to forge a registration
 to be in the path. Reachability is checked as part of becoming eligible rather
 than as a later formality, which is issue #52. And whether the machines in the
-pool may be ones the operator does not own is not settled: it is entry 3 of
-issue #1, which I reserved. This document does not assume an answer,
-and the entry above is written so that it holds under either one.
+pool may be ones the operator does not own is entry 3 of issue #1, which I
+reserved and answered on 2026-08-09: a driver interface exists and no driver
+for a rented machine ships in this software, so a unit on somebody else's
+machine is one the operator installed a driver for. THIS PARAGRAPH WENT ON
+CALLING THAT ENTRY UNSETTLED AFTER IT WAS ANSWERED, and the entry above was
+written to hold under either answer, which it does: a rented machine presents
+the installation's key like any other, and what the proof does not reach is
+the same for both. What a rented unit means for where the media goes is
+[data-protection.md](data-protection.md)'s sentence rather than this one's.
 
 ## Driving the capacity signal to spend the operator's money
 
@@ -397,19 +403,28 @@ do it, and anything reached through a build-tagged file the parse skips.
 The service cannot record a meeting. There is no recording capability in this
 tree and no issue on this board to build one.
 
-That is an open question rather than a decision. Whether the service may record
-at all is entry 2 of issue #1, which I reserved, because a lecture with
-three hundred people in it is a personal communication for every one of them and
-what the operator would then be holding is a legal position rather than a
-feature.
+THIS ENTRY CALLED THAT AN OPEN QUESTION, AND IT IS A DECISION. Whether the
+service may record at all is entry 2 of issue #1, which I reserved because a
+lecture with three hundred people in it is a personal communication for every
+one of them and what the operator would then be holding is a legal position
+rather than a feature, and which I answered on 2026-08-09: recording may exist,
+it is off by default, and it carries an indicator the server enforces against
+every client including ones this project did not write. The indicator is the
+server's and not the client's because a client that can hide it turns an
+indicator into a request.
 
 What this document records is the attack surface as it stands, which is that
-there is nothing to enable, nothing to suppress and no indicator to defeat. If
-the answer is that recording exists, this entry gains a threat the design does
-not have today, which is a participant or an operator recording without the
-in-room indicator the second option requires, and that indicator would have to
-be enforced by the server against every client including ones this project did
-not write.
+there is nothing to enable, nothing to suppress and no indicator to defeat,
+because nothing is built and no issue on this board builds it. This entry is
+not an absence with no issue behind it, which the rule at the top forbids: there
+is no mechanism because there is no capability, and a threat against a
+capability that does not exist has nothing to hold it. The day an issue builds
+recording, this entry gains the threat the decision names, a participant or an
+operator recording without the in-room indicator, and the property that stops
+it is that the indicator is a member of the server-authoritative session state
+under issue #32 rather than a thing a client draws. For the capacity and
+placement model a recorder counts as a participant, so the entry above about
+driving the capacity signal already holds for one.
 
 ## Secrets reaching a log or a bug report
 

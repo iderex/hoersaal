@@ -156,7 +156,7 @@ work on issue #59.
 
 ## What is not a setting and is not going to become one
 
-Two entries, both answered by the maintainer on issue #1 rather than decided here.
+Two entries, both of which I answered on issue #1 rather than deciding here.
 
 **Telemetry.** There is none. Not off by default, not opt-in, and not a key whose
 default is the promise. This software has no reporting path, so there is nothing

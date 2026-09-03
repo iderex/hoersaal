@@ -286,7 +286,7 @@ Two things beside it, because an attacker does not have to forge a registration
 to be in the path. Reachability is checked as part of becoming eligible rather
 than as a later formality, which is issue #52. And whether the machines in the
 pool may be ones the operator does not own is not settled: it is entry 3 of
-issue #1 and it is the maintainer's. This document does not assume an answer,
+issue #1, which I reserved. This document does not assume an answer,
 and the entry above is written so that it holds under either one.
 
 ## Driving the capacity signal to spend the operator's money
@@ -398,7 +398,7 @@ The service cannot record a meeting. There is no recording capability in this
 tree and no issue on this board to build one.
 
 That is an open question rather than a decision. Whether the service may record
-at all is entry 2 of issue #1 and it is the maintainer's, because a lecture with
+at all is entry 2 of issue #1, which I reserved, because a lecture with
 three hundred people in it is a personal communication for every one of them and
 what the operator would then be holding is a legal position rather than a
 feature.

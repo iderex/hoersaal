@@ -13,6 +13,12 @@ obligations begin.
 
 See [LICENSE](LICENSE) for the terms, the GNU Affero General Public License version 3.
 
+Personal data does not leave the host: media runs between participants and the
+forwarding units the operator runs, the control plane talks to nothing the
+operator did not configure, and nothing calls home.
+[docs/data-protection.md](docs/data-protection.md) is the statement, and it
+says what is held, where, for how long, and what removes it.
+
 ## What the checks on every change do not cover
 
 The suite that runs on every change runs without a display, a camera, a

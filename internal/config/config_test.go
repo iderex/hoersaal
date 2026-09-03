@@ -108,6 +108,8 @@ var refusedValues = []struct {
 	{"a driver this software does not have", `{"provisioner.driver": "hyperscaler"}`},
 	{"an empty machine nothing can reach", `{"provisioner.driver": "none", "provisioner.machines": [""]}`},
 	{"machines no driver would ever use", `{"provisioner.machines": ["unit-a.example.org"]}`},
+	{"a listed driver with nothing listed", `{"provisioner.driver": "listed"}`},
+	{"a listed driver over an empty list", `{"provisioner.driver": "listed", "provisioner.machines": []}`},
 	{"a list of machines written as one string", `{"provisioner.machines": "unit-a.example.org"}`},
 }
 
@@ -140,6 +142,7 @@ var acceptedValues = []struct {
 	{"an uplink of zero states nothing", `{"unit.egress-ceiling": 0}`},
 	{"a floor equal to the ceiling is a fixed pool", `{"pool.minimum": 3, "pool.maximum": 3}`},
 	{"an empty machine list under the fixed-pool driver", `{"provisioner.machines": []}`},
+	{"a listed driver over one machine", `{"provisioner.driver": "listed", "provisioner.machines": ["unit-a.example.org"]}`},
 	{"a certificate that was given", `{"listen.certificate": "/etc/hoersaal/fullchain.pem"}`},
 }
 

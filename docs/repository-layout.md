@@ -154,7 +154,14 @@ that reads a configuration, holding the keys
 [decisions/what-an-operator-may-set.md](decisions/what-an-operator-may-set.md)
 fixes and refusing everything else, which is issue #82; `internal/selfcheck`
 runs the things an operator gets wrong before their first lecture and reports a
-step it could not run as not verified rather than as passed, which is issue #84.
+step it could not run as not verified rather than as passed, which is issue #84;
+`internal/provision` is the seam through which the scaling loop asks for the
+machine a unit runs on and gives one back, holding the interface, the driver
+over machines the operator listed and the fixed-pool case, which is issue #63
+and is argued in
+[decisions/provisioning-driver.md](decisions/provisioning-driver.md);
+`internal/provisionfake` holds the drivers a test of that loop reaches for,
+beside the real ones for the reason `internal/mediafake` sits beside the port.
 
 The configuration package is one level down and flat like the rest, and the
 reason it is not inside `cmd/hoersaal` is the sentence at the top of this

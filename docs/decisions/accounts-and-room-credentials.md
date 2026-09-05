@@ -146,11 +146,11 @@ that the credential names one conference and one role. An installation that need
 more than that needs an account, which is the other route.
 
 The link leaking into a log or a history. Bounded by what is inside the
-credential, which is why the subject is an identifier rather than a person. It is
-also why the credential belongs in the fragment of a link rather than in its
-query, since a fragment is not sent to the server by a browser and does not reach
-an access log. That is a property of the client and of the join route rather than
-of this package, and issues #35 and #76 are where it is built.
+credential: the subject is an identifier and not a person, and the credential
+sits in the fragment of a link and not in its query, since a fragment is not sent
+to the server by a browser and does not reach an access log. That is a property
+of the client and of the join route rather than of this package, and issues #35
+and #76 are where it is built.
 
 Guessing. There is nothing to guess. A credential is not a short code and the
 signature is not truncated.

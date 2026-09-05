@@ -413,9 +413,9 @@ every client including ones this project did not write. The indicator is the
 server's and not the client's because a client that can hide it turns an
 indicator into a request.
 
-What this document records is the attack surface as it stands, which is that
-there is nothing to enable, nothing to suppress and no indicator to defeat,
-because nothing is built and no issue on this board builds it. This entry is
+The attack surface as it stands is empty: there is nothing to enable, nothing
+to suppress and no indicator to defeat, because nothing is built and no issue on
+this board builds it. This entry is
 not an absence with no issue behind it, which the rule at the top forbids: there
 is no mechanism because there is no capability, and a threat against a
 capability that does not exist has nothing to hold it. The day an issue builds

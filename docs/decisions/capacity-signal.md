@@ -80,8 +80,8 @@ of a unit is not on that list. The denominators are derived.
 
 The packet rate denominator and the distress denominator come from a calibration
 the unit runs against itself, which is the subject of issue #54. Until that issue
-lands, this document says only what the calibration has to produce, which is the
-two numbers named above for the class of machine the unit is running on.
+lands, only what the calibration has to produce is fixed: the two numbers named
+above for the class of machine the unit is running on.
 
 The egress denominator is the exception, and it is the honest one. A machine can
 report the speed of its network interface and cannot report what the operator is

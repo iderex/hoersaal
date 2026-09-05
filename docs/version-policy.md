@@ -144,8 +144,8 @@ and its release notes name every change against its category. There is no releas
 so nothing has followed it and no notes have been written against these
 categories.
 
-That is not a formality, and it is the reason this document says so rather than
-implying it is in force. A version policy nothing has been released under is one
-whose first contact with reality is after somebody has tagged something, and the
-categories are exactly the part that turns out to be wrong then. Issue #115 tags
-the first release and this closes with the notes written against it.
+So the policy is not in force yet, and that is not a formality. A version policy
+nothing has been released under is one whose first contact with reality is after
+somebody has tagged something, and the categories are exactly the part that
+turns out to be wrong then. Issue #115 tags the first release, and the condition
+closes with the notes written against it.

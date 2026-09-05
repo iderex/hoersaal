@@ -74,9 +74,9 @@ produces no message at all, so an idle room of three hundred costs nothing.
 Half a second is the interval a client's view of the room is allowed to lag. It
 is short enough that a room reads as live to somebody watching it and long enough
 that the joins arriving together at the top of the hour collapse into one
-message. It is a judgement and not a measurement, and it is written here so that
-the measurement on issue #71 has something to disagree with. If the join storm
-figures say a different number, this is the line that changes.
+message. It is a judgement and not a measurement; the measurement is the join
+storm on issue #71, and if its figures say a different number, this is the line
+that changes.
 
 What the window bounds is the thing worth being precise about. It bounds messages
 by elapsed time and never by the number of changes, which is the product this

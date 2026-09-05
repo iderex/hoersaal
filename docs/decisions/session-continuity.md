@@ -147,12 +147,11 @@ Nothing on the scaling milestone removes it: the floor, the minimum lifetime and
 the cooldown on issue #62 all bound how often the pool changes and none of them
 ends a room to release a machine.
 
-What this costs is one machine per long room, for as long as the room runs, and
-it is only worth reopening the decision if that number turns out to be large. The
-run that would say is the soak on issue #70, which is the only one that watches
-the pool move over hours. This is a residual stated rather than a risk accepted
-quietly, and the measurement that would change the answer is named so that a
-later argument has something to argue with.
+The cost is one machine per long room, for as long as the room runs, and the
+decision is worth reopening only if that number turns out to be large. The run
+that would say is the soak on issue #70, which is the only one that watches the
+pool move over hours. Until that soak has run, the cost stands as a residual and
+not as a risk that has been weighed.
 
 ## The issues that read this
 
